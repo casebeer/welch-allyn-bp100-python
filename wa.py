@@ -27,7 +27,7 @@ from transtek.bleUuids import (
 
 async def main():
     logging.basicConfig(level=logging.DEBUG)
-    password = bytearray.fromhex(os.environ.get('WA_BLE_PASSWORD'))
+    password = bytearray.fromhex(os.environ.get('WA_BLE_PASSWORD', ''))
 
     # optional device address – connect directly to device without waiting for advertisements
     deviceAddress = sys.argv[1] if len(sys.argv) > 1 else None

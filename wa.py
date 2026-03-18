@@ -6,7 +6,8 @@ from bleak import (
 
 import logging
 bleak_logger = logging.getLogger("bleak")
-bleak_logger.setLevel(logging.DEBUG)
+#bleak_logger.setLevel(logging.DEBUG)
+bleak_logger.setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +18,7 @@ import os
 from transtek import (
     TranstekController,
     TranstekBleDriver,
-    MockTranstekBleDriver,
+    #MockTranstekBleDriver,
 )
 
 from transtek.bleUuids import (
@@ -85,20 +86,19 @@ async def main():
     logger.info(device)
 
     logger.info("Connecting to BP monitor...")
-    #async with BleakClient(device) as client:
-    client = BleakClient(device)
-    #model_number = await client.read_gatt_char(MANUFACTURER_NAME_CHAR)
-    #logger.info("Model number = {}".format(model_number))
 
-    await client.connect()
+    async with BleakClient(device) as client:
+        #model_number = await client.read_gatt_char(MANUFACTURER_NAME_CHAR)
+        #logger.info("Model number = {}".format(model_number))
 
-    transtekController = TranstekController(TranstekBleDriver(client), password)
+        await client.connect()
 
-    # Once the controller is initialized, it will respond asynchronously to BLE advertisements and
-    # indications from the BP device.
-    await transtekController.initialize()
-    await asyncio.sleep(1000)
+        transtekController = TranstekController(TranstekBleDriver(client), password)
 
+        # Once the controller is initialized, it will respond asynchronously to BLE advertisements and
+        # indications from the BP device.
+        await transtekController.initialize()
+        await asyncio.sleep(1000)
 
 if __name__ == '__main__':
     asyncio.run(main())

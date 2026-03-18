@@ -2,12 +2,12 @@
 import logging
 
 from .bleUuids import (
-  MODEL_NUMBER_CHAR,
-  SERIAL_NUMBER_CHAR,
-  FIRMWARE_REVISION_CHAR,
-  HARDWARE_REVISION_CHAR,
-  SOFTWARE_REVISION_CHAR,
-  MANUFACTURER_NAME_CHAR,
+    MODEL_NUMBER_CHAR,
+    SERIAL_NUMBER_CHAR,
+    FIRMWARE_REVISION_CHAR,
+    HARDWARE_REVISION_CHAR,
+    SOFTWARE_REVISION_CHAR,
+    MANUFACTURER_NAME_CHAR,
 )
 
 from .TranstekBleDriver import TranstekBleDriver
@@ -100,85 +100,85 @@ The format is:
                  0x01 Device battery level OK: 1 = OK, 0 = Low battery
 '''
 class TranstekController(object):
-  deviceInfoFields = [
-    ('Manufacturer name', MANUFACTURER_NAME_CHAR),
-    ('Firmware revision', FIRMWARE_REVISION_CHAR),
-    ('Hardware revision', HARDWARE_REVISION_CHAR),
-    ('Software revision', SOFTWARE_REVISION_CHAR),
-    ('Model number', MODEL_NUMBER_CHAR),
-    ('Serial number', SERIAL_NUMBER_CHAR),
-  ]
-  def __init__(self, bleDriver, password: bytearray):
-    self.bleDriver = bleDriver
-    self.password = password
-  async def initialize(self):
-    logger.debug("Initializing Transtek BLE client...")
-    self.deviceInfo = await self.getDeviceInfo() # TODO: handle deviceInfo
-    #self.deviceInfo = {}
-    logger.info(pprint.pformat(self.deviceInfo))
+    deviceInfoFields = [
+        ('Manufacturer name', MANUFACTURER_NAME_CHAR),
+        ('Firmware revision', FIRMWARE_REVISION_CHAR),
+        ('Hardware revision', HARDWARE_REVISION_CHAR),
+        ('Software revision', SOFTWARE_REVISION_CHAR),
+        ('Model number', MODEL_NUMBER_CHAR),
+        ('Serial number', SERIAL_NUMBER_CHAR),
+    ]
+    def __init__(self, bleDriver, password: bytearray):
+        self.bleDriver = bleDriver
+        self.password = password
+    async def initialize(self):
+        logger.debug("Initializing Transtek BLE client...")
+        self.deviceInfo = await self.getDeviceInfo() # TODO: handle deviceInfo
+        #self.deviceInfo = {}
+        logger.info(pprint.pformat(self.deviceInfo))
 
-    await self.bleDriver.subscribeToBpData(self.bpDataHandler)
-    await self.bleDriver.subscribeToCommands(self.commandHandler)
+        await self.bleDriver.subscribeToBpData(self.bpDataHandler)
+        await self.bleDriver.subscribeToCommands(self.commandHandler)
 
-    logger.debug("BLE indications configured.")
-  async def commandHandler(self, data: bytearray):
-    logger.debug(f"[s2c] {data.hex()}")
-    match data[0]:
-      case 0xa0:
-        self.setPassword(data[1:5])
-        await self.setBroadcastId()
-        #asyncio.get_event_loop().create_task(self.setBroadcastId())
-      case 0xa1:
-        #challenge = data[1:5]
-        #logger.debug(f"[s2c] 0xa1 setChallenge({challenge.hex()})")
-        await self.setChallenge(data[1:5])
-        await self.setTime()
-        #asyncio.get_event_loop().create_task(self.setChallenge(data[1:5]))
-        #asyncio.get_event_loop().create_task(self.setTime())
-        # TODO: if pairing, then self.setWaitingForData()
-      case 0x22:
-        logger.debug("[s2c] 0x22 deviceWillDisconnect")
-      case _:
+        logger.debug("BLE indications configured.")
+    async def commandHandler(self, data: bytearray):
+        logger.debug(f"[s2c] {data.hex()}")
+        match data[0]:
+            case 0xa0:
+                self.setPassword(data[1:5])
+                await self.setBroadcastId()
+                #asyncio.get_event_loop().create_task(self.setBroadcastId())
+            case 0xa1:
+                #challenge = data[1:5]
+                #logger.debug(f"[s2c] 0xa1 setChallenge({challenge.hex()})")
+                await self.setChallenge(data[1:5])
+                await self.setTime()
+                #asyncio.get_event_loop().create_task(self.setChallenge(data[1:5]))
+                #asyncio.get_event_loop().create_task(self.setTime())
+                # TODO: if pairing, then self.setWaitingForData()
+            case 0x22:
+                logger.debug("[s2c] 0x22 deviceWillDisconnect")
+            case _:
+                pass
+    async def bpDataHandler(self, dataBytes: bytearray):
+        data = util.parseBpData(dataBytes)
+        logger.info(pprint.pformat(data))
+        await self.setWaitingForData()
+        #asyncio.get_event_loop().create_task(self.setWaitingForData())
+    async def getDeviceInfo(self):
+        data = {}
+        for name, char in self.deviceInfoFields:
+            data[name] = await self.bleDriver.readDeviceInfoCharacteristic(char)
+        return data
+    def setPassword(self, password):
+        # TODO: Store password
+        logger.debug(f"[s2c] 0xa0 setPassword({password.hex()})")
         pass
-  async def bpDataHandler(self, dataBytes: bytearray):
-    data = util.parseBpData(dataBytes)
-    logger.info(pprint.pformat(data))
-    await self.setWaitingForData()
-    #asyncio.get_event_loop().create_task(self.setWaitingForData())
-  async def getDeviceInfo(self):
-    data = {}
-    for name, char in self.deviceInfoFields:
-      data[name] = await self.bleDriver.readDeviceInfoCharacteristic(char)
-    return data
-  def setPassword(self, password):
-    # TODO: Store password
-    logger.debug(f"[s2c] 0xa0 setPassword({password.hex()})")
-    pass
-  async def setBroadcastId(self):
-    broadcastId = bytearray([0x01, 0x23, 0x45, 0x67])
-    logger.debug(f"[c2s] 0x21 setBroadcastId({broadcastId.hex()})")
-    command = bytearray([0x21]) + broadcastId
-    await self.sendCommand(command)
-  async def setChallenge(self, challenge):
-    logger.debug(f"[s2c] 0xa1 setChallenge({challenge.hex()})")
-    response = util.transtekChallengeResponse(challenge, self.password)
-    await self.setChallengeResponse(response)
-  async def setChallengeResponse(self, response):
-    await asyncio.sleep(BLE_RESPONSE_DELAY)
-    logger.debug(f"[c2s] 0x20 setChallengeResponse({response.hex()})")
-    command = bytearray([0x20]) + response
-    await self.sendCommand(command)
-  async def setTime(self):
-    await asyncio.sleep(BLE_RESPONSE_DELAY)
-    timestampBytes = util.transtekCurrentTimestamp()
-    logger.debug(f"[c2s] 0x02 setTime({timestampBytes.hex()})")
-    command = bytearray([0x02]) + timestampBytes
-    await self.sendCommand(command)
-    #await self.setWaitingForData()
-  async def setWaitingForData(self):
-    await asyncio.sleep(BLE_RESPONSE_DELAY)
-    logger.debug("[c2s] 0x22 setClientWaitingForData()")
-    await self.sendCommand(bytearray([0x22]))
-  async def sendCommand(self, commandBytes):
-    logger.debug(f"[c2s] {commandBytes.hex()}")
-    await self.bleDriver.writeCommand(commandBytes)
+    async def setBroadcastId(self):
+        broadcastId = bytearray([0x01, 0x23, 0x45, 0x67])
+        logger.debug(f"[c2s] 0x21 setBroadcastId({broadcastId.hex()})")
+        command = bytearray([0x21]) + broadcastId
+        await self.sendCommand(command)
+    async def setChallenge(self, challenge):
+        logger.debug(f"[s2c] 0xa1 setChallenge({challenge.hex()})")
+        response = util.transtekChallengeResponse(challenge, self.password)
+        await self.setChallengeResponse(response)
+    async def setChallengeResponse(self, response):
+        await asyncio.sleep(BLE_RESPONSE_DELAY)
+        logger.debug(f"[c2s] 0x20 setChallengeResponse({response.hex()})")
+        command = bytearray([0x20]) + response
+        await self.sendCommand(command)
+    async def setTime(self):
+        await asyncio.sleep(BLE_RESPONSE_DELAY)
+        timestampBytes = util.transtekCurrentTimestamp()
+        logger.debug(f"[c2s] 0x02 setTime({timestampBytes.hex()})")
+        command = bytearray([0x02]) + timestampBytes
+        await self.sendCommand(command)
+        #await self.setWaitingForData()
+    async def setWaitingForData(self):
+        await asyncio.sleep(BLE_RESPONSE_DELAY)
+        logger.debug("[c2s] 0x22 setClientWaitingForData()")
+        await self.sendCommand(bytearray([0x22]))
+    async def sendCommand(self, commandBytes):
+        logger.debug(f"[c2s] {commandBytes.hex()}")
+        await self.bleDriver.writeCommand(commandBytes)

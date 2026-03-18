@@ -55,23 +55,23 @@ def transtekTimestamp(dt):
 # local time without DST. Not clear we need to accomodate this if we're the device's only
 # client, but for compatibility, we'll adjust our timestamps here.
 def dstRemovalCorrection():
-  isDst = time.localtime().tm_isdst
-  dstRemovalCorrection = datetime.timedelta(seconds=3600 if isDst else 0)
-  return dstRemovalCorrection
+    isDst = time.localtime().tm_isdst
+    dstRemovalCorrection = datetime.timedelta(seconds=3600 if isDst else 0)
+    return dstRemovalCorrection
 
 
 def parseBpData(data: bytearray):
-  [ header, systolic, diastolic, map_, timestamp, heartrate, _, bpFlags, _, deviceFlags  ] = struct.unpack('<BHHHIHBBBB', data)
-  bpData = {
-    'systolic': systolic,
-    'diastolic': diastolic,
-    'timestamp': convertTimestampToDatetime(timestamp),
-    'heartrate': heartrate,
-    'motionDetected': ((bpFlags & 0x01) == 1),
-    'irregularHeartbeat': (((bpFlags >> 2) & 0x01) == 1),
-  }
-  deviceBatteryOk = ((deviceFlags & 0x01) == 1)
-  return {
-    'bpData': bpData,
-    'deviceBatteryOk': deviceBatteryOk,
-  }
+    [ header, systolic, diastolic, map_, timestamp, heartrate, _, bpFlags, _, deviceFlags    ] = struct.unpack('<BHHHIHBBBB', data)
+    bpData = {
+        'systolic': systolic,
+        'diastolic': diastolic,
+        'timestamp': convertTimestampToDatetime(timestamp),
+        'heartrate': heartrate,
+        'motionDetected': ((bpFlags & 0x01) == 1),
+        'irregularHeartbeat': (((bpFlags >> 2) & 0x01) == 1),
+    }
+    deviceBatteryOk = ((deviceFlags & 0x01) == 1)
+    return {
+        'bpData': bpData,
+        'deviceBatteryOk': deviceBatteryOk,
+    }

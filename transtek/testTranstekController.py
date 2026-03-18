@@ -11,14 +11,14 @@ pytest_plugins = ('pytest_asyncio',)
 
 @pytest.mark.asyncio
 async def testTranstekController():
-  transtekController = TranstekController(
-    driver=MockTranstekBleDriver(),
-    password=bytearray([ 0xaa, 0xbb, 0xcc, 0xdd ])
-  )
-  await transtekController.initialize()
+    transtekController = TranstekController(
+        MockTranstekBleDriver(),
+        password=bytearray([ 0xaa, 0xbb, 0xcc, 0xdd ])
+    )
+    await transtekController.initialize()
 
 async def main():
-  await testTranstekController()
+    await testTranstekController()
 
 if __name__ == '__main__':
-  asyncio.run(main())
+    asyncio.run(main())

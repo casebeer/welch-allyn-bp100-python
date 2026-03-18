@@ -15,13 +15,13 @@ import sys
 import os
 import pprint
 
-from transtek import (
+from surebp import (
     TranstekController,
     TranstekBleDriver,
     #MockTranstekBleDriver,
 )
 
-from transtek.bleUuids import (
+from surebp.bleUuids import (
     TRANSTEK_BP_SERVICE,
     DEVICE_INFO_SERVICE,
 )

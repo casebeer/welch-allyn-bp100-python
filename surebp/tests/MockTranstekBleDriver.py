@@ -1,5 +1,5 @@
 
-from transtek.util import (
+from surebp.util import (
     convertTimestampToDatetime,
     verifyChallengeResponse,
 )

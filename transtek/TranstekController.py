@@ -24,7 +24,7 @@ Coordinate BLE indication subscriptions and writes for Transtek BLE BP monitor.
 
 Transtek (OEM for Welch Allyn SureBP BP100 models 1500 and 1700) BLE blood pressure monitors
 exchange commands with the client via writes to a client-to-sever characteristic and indicate
-subscriptsions to a server-to-client characteristic.
+subscriptions to a server-to-client characteristic.
 
 Before sending actual blood pressure data, the device requires the client to authenticate via a
 trivial challenge-response password authentication over the command characteristics.
@@ -126,6 +126,8 @@ class TranstekController(object):
         await self.setBroadcastId()
         #asyncio.get_event_loop().create_task(self.setBroadcastId())
       case 0xa1:
+        #challenge = data[1:5]
+        #print(f"[s2c] 0xa1 setChallenge({challenge.hex()})")
         await self.setChallenge(data[1:5])
         await self.setTime()
         #asyncio.get_event_loop().create_task(self.setChallenge(data[1:5]))

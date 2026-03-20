@@ -1,4 +1,5 @@
 
+import bleak
 from bleak import (
     BleakScanner,
 )
@@ -22,13 +23,12 @@ from surebp import (
 )
 
 from surebp.bleUuids import (
-    TRANSTEK_BP_SERVICE,
-    DEVICE_INFO_SERVICE,
+    GattServices,
 )
 
 async def main():
-    #logging.basicConfig(level=logging.DEBUG)
-    logging.basicConfig(level=logging.INFO)
+    #logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     password = bytearray.fromhex(os.environ.get('WA_BLE_PASSWORD', ''))
 
     # optional device address – connect directly to device without waiting for advertisements
@@ -48,13 +48,13 @@ async def main():
 #        filterfunc = foobar,
 #        return_adv = False,
 #        timeout = 60,
-#        service_uuids=[TRANSTEK_BP_SERVICE],
+#        service_uuids=[GattServices.TRANSTEK_BP.value],
 #        )
 ##    filters={"UUIDs":["1d93af38-9239-11ea-bb37-0242ac130002"], "DuplicateData":False}
 #    devices = await BleakScanner.discover(
 #        return_adv = False,
 #        timeout = 60,
-#        service_uuids=[TRANSTEK_BP_SERVICE.lower()],
+#        service_uuids=[GattServices.TRANSTEK_BP.value.lower()],
 #        )
 #
 #    if len(devices) == 0:
@@ -65,20 +65,20 @@ async def main():
 
     if deviceAddress is None:
         logger.info("Scanning for BLE devices...")
+        # Normalized service UUIDs since Bleak will not match on a short/16 bit UUID
+        serviceUuids = [bleak.uuids.normalize_uuid_str(u) for u in [GattServices.TRANSTEK_BP.value]]
         async with BleakScanner(
-            service_uuids = [TRANSTEK_BP_SERVICE],
+            service_uuids=serviceUuids,
             ) as scanner:
-            logger.info("Scanning...")
+            logger.info(f"Scanning for service UUIDs {serviceUuids}...")
 
             logger.info(f"\nadvertisement packets:")
             async for bleDevice, advertisementData in scanner.advertisement_data():
                 if advertisementData.service_uuids:
-                    logger.info(f"{advertisementData.service_uuids}")
-                    #logger.info(f" {bd!r} with {ad!r}")
-                    if TRANSTEK_BP_SERVICE.lower() in advertisementData.service_uuids:
-                        logger.info("Found matching device!")
-                        device = bleDevice
-                        break
+                    logger.info(f"Got matching UUID: {advertisementData.service_uuids}")
+                    # return the first matching device seen
+                    device = bleDevice
+                    break
             logger.info("Broken out of scanning loop...")
         logger.info("Found BP monitor device.")
     else:

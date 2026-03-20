@@ -1,30 +1,42 @@
+'''
+BLE GATT UUID definifitions
 
-DEVICE_INFO_SERVICE = "0000180a-0000-1000-8000-00805f9b34fb"
+n.b. that Python Bleak can have problems matching "short" 16 bit UUIDs, e.g. when passing
+     service_uuids to BleakScanner; normalize with normalize_uuid_str() or use the long forms.
+'''
 
-MODEL_NUMBER_CHAR = "00002a24-0000-1000-8000-00805f9b34fb"
-SERIAL_NUMBER_CHAR = "00002a25-0000-1000-8000-00805f9b34fb"
-FIRMWARE_REVISION_CHAR = "00002a26-0000-1000-8000-00805f9b34fb"
-HARDWARE_REVISION_CHAR = "00002a27-0000-1000-8000-00805f9b34fb"
-SOFTWARE_REVISION_CHAR = "00002a28-0000-1000-8000-00805f9b34fb"
-MANUFACTURER_NAME_CHAR = "00002a29-0000-1000-8000-00805f9b34fb"
+from enum import Enum
 
-# Transtek services and characteristics
+class GattServices(Enum):
+    DEVICE_INFO = "180a"  # Generic BLE/GATT
+    TRANSTEK_BP = "00007809-0000-1000-8000-00805f9b34fb" # long form for BleakScanner compatibility
 
-# Transtek BP service and its characteristics
-TRANSTEK_BP_SERVICE = "7809"
-TRANSTEK_BP_SERVICE = "00007809-0000-1000-8000-00805f9b34fb"
+class DeviceInfoCharacteristics(Enum):
+    '''
+    Characteristic UUIDs for the BLE GATT Device Info service
 
-TRANSTEK_BP_DATA_INDICATE_CHAR = "00008a91-0000-1000-8000-00805f9b34fb"
-TRANSTEK_BP_DATA_INDICATE_CHAR = "8a91"
+    n.b. specified as "short" 16 bit UUIDs; these can all be converted to full UUIDs by replacing
+         bytes two and three of the template UUID "0000xxxx-0000-1000-8000-00805f9b34fb" with the
+         short UUID.
+    '''
+    MODEL_NUMBER = "2a24"
+    SERIAL_NUMBER = "2a25"
+    FIRMWARE_REVISION = "2a26"
+    HARDWARE_REVISION = "2a27"
+    SOFTWARE_REVISION = "2a28"
+    MANUFACTURER_NAME = "2a29"
 
-TRANSTEK_BP_DATA_READ_CHAR = "00008a90-0000-1000-8000-00805f9b34fb" # seen but unused in hci logs
-TRANSTEK_BP_DATA_NOTIFY_CHAR = "00008a92-0000-1000-8000-00805f9b34fb" # seen but unused in hci logs
+class TranstekCharacteristics(Enum):
+    # c2s and s2c command write and "read" characterisitics
+    # Used to set time, challenge/response auth, etc.
+    C2S_COMMAND = "8a81"
+    S2C_COMMAND_INDICATE = "8a82"
 
-TRANSTEK_C2S_COMMAND_CHAR = "00008a81-0000-1000-8000-00805f9b34fb"
-TRANSTEK_C2S_COMMAND_CHAR = "8a81"
+    # Used to receive BP data from the device
+    BP_DATA_INDICATE = "8a91"
 
-TRANSTEK_S2C_COMMAND_INDICATE_CHAR = "00008a82-0000-1000-8000-00805f9b34fb"
-TRANSTEK_S2C_COMMAND_INDICATE_CHAR = "8a82"
+    BP_DATA_READ = "8a90" # seen but unused in hci logs
+    BP_DATA_NOTIFY = "8a92" # seen but unused in hci logs
 
 # Seen on device:
 #

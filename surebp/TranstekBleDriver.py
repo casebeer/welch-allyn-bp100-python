@@ -12,11 +12,8 @@ from bleak import (
 )
 
 from .bleUuids import (
-    TRANSTEK_BP_SERVICE,
-    TRANSTEK_BP_DATA_INDICATE_CHAR,
-    TRANSTEK_BP_DATA_NOTIFY_CHAR,
-    TRANSTEK_C2S_COMMAND_CHAR,
-    TRANSTEK_S2C_COMMAND_INDICATE_CHAR,
+    GattServices,
+    TranstekCharacteristics,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,10 +32,14 @@ class TranstekBleDriver(object):
 
     async def connect(self):
         await self.client.connect()
-        self.bpService = self.client.services.get_service(TRANSTEK_BP_SERVICE)
-        self.bpChar = self.bpService.get_characteristic(TRANSTEK_BP_DATA_INDICATE_CHAR)
-        self.c2sCommandChar = self.bpService.get_characteristic(TRANSTEK_C2S_COMMAND_CHAR)
-        self.s2cCommandChar = self.bpService.get_characteristic(TRANSTEK_S2C_COMMAND_INDICATE_CHAR)
+        self.bpService = self.client.services.get_service(
+                                GattServices.TRANSTEK_BP.value)
+        self.bpChar = self.bpService.get_characteristic(
+                                TranstekCharacteristics.BP_DATA_INDICATE.value)
+        self.c2sCommandChar = self.bpService.get_characteristic(
+                                TranstekCharacteristics.C2S_COMMAND.value)
+        self.s2cCommandChar = self.bpService.get_characteristic(
+                                TranstekCharacteristics.S2C_COMMAND_INDICATE.value)
 
         self.is_connected = self.client.is_connected
 
@@ -83,14 +84,12 @@ class TranstekBleDriver(object):
         async def wrapper(characteristic: BleakGATTCharacteristic, data: bytearray):
             logger.debug(f"[wrapper] command characteristic callback: {data.hex()}")
             return await handler(data)
-        #await self.client.start_notify(TRANSTEK_S2C_COMMAND_INDICATE_CHAR, wrapper)
         await self.client.start_notify(self.s2cCommandChar, wrapper)
 
     async def subscribeToBpData(self, handler):
         async def wrapper(characteristic: BleakGATTCharacteristic, data: bytearray):
             logger.debug(f"[wrapper] bpdata characteristic callback: {data.hex()}")
             return await handler(data)
-        #await self.client.start_notify(TRANSTEK_BP_DATA_INDICATE_CHAR, wrapper)
         await self.client.start_notify(self.bpChar, wrapper)
 
     async def readDeviceInfoCharacteristic(self, char):

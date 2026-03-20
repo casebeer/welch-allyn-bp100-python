@@ -2,12 +2,7 @@
 import logging
 
 from .bleUuids import (
-    MODEL_NUMBER_CHAR,
-    SERIAL_NUMBER_CHAR,
-    FIRMWARE_REVISION_CHAR,
-    HARDWARE_REVISION_CHAR,
-    SOFTWARE_REVISION_CHAR,
-    MANUFACTURER_NAME_CHAR,
+    DeviceInfoCharacteristics,
 )
 
 from .TranstekBleDriver import TranstekBleDriver
@@ -100,14 +95,6 @@ The format is:
                  0x01 Device battery level OK: 1 = OK, 0 = Low battery
 '''
 class TranstekController(object):
-    deviceInfoFields = [
-        ('Manufacturer name', MANUFACTURER_NAME_CHAR),
-        ('Firmware revision', FIRMWARE_REVISION_CHAR),
-        ('Hardware revision', HARDWARE_REVISION_CHAR),
-        ('Software revision', SOFTWARE_REVISION_CHAR),
-        ('Model number', MODEL_NUMBER_CHAR),
-        ('Serial number', SERIAL_NUMBER_CHAR),
-    ]
     def __init__(self, bleDriver, password: bytearray):
         self.bleDriver = bleDriver
         self.password = password
@@ -182,8 +169,8 @@ class TranstekController(object):
 
     async def getDeviceInfo(self):
         data = {}
-        for name, char in self.deviceInfoFields:
-            data[name] = await self.bleDriver.readDeviceInfoCharacteristic(char)
+        for char in DeviceInfoCharacteristics:
+            data[char.name] = await self.bleDriver.readDeviceInfoCharacteristic(char.value)
         return data
     def setPassword(self, password):
         # TODO: Store password

@@ -20,7 +20,7 @@ BLE_RESPONSE_DELAY = 0.01 # slow down messages sent to GATT server
 
 Coordinate BLE indication subscriptions and writes for Transtek BLE BP monitor.
 
-Transtek (OEM for Welch Allyn SureBP BP100 models 1500 and 1700) BLE blood pressure monitors
+Transtek (OEM for Welch Allyn BP100 models 1500 and 1700) BLE blood pressure monitors
 exchange commands with the client via writes to a client-to-sever characteristic and indicate
 subscriptions to a server-to-client characteristic.
 

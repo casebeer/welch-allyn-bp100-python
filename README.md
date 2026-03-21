@@ -1,7 +1,7 @@
-# Welch Allyn SureBP Python Client
+# Welch Allyn 1500 & 1700 BP100 Python Client
 
-Python client for Welch Allyn SureBP BLE home blood pressure meters. Uses the Bleak Python BLE
-library.
+Python client for Welch Allyn model 1500 and 1700 BP100 BLE home blood pressure meters. Uses the
+Bleak Python BLE library.
 
 These devices require a Welch Allyn Android app which is no longer practically installable, as it
 has not been updated to support modern 64 bit Android (as of June 2025). (Update: There appears to
@@ -9,7 +9,9 @@ be a new official Android app as of March 2026).
 
 ## Devices
 
-Tested with the Welch Allyn H-BP100-SBP SureBP device.
+Tested with the Welch Allyn 1700 SureBP H-BP100-SBP device.
+
+Likely also works with the Welch Allyn 1500 RPM-BP100 device.
 
 These devices appear to use a BLE chipset and protocol from Transtek. The bulk of the code handling
 this protocol is in the `surebp` package in this project.
@@ -25,7 +27,7 @@ this protocol is in the `surebp` package in this project.
 
 You'll need:
 
-1. A Welch Allyn SureBP device, like the H-BP100-SBP.
+1. A Welch Allyn BP100 device, like the 1700/H-BP100-SBP.
 
 *Note that using this script will download all blood pressure readings still on the device. Once a
 blood pressure reading has been downloaded by any app, it is erased from the device and will NOT be
@@ -74,7 +76,7 @@ script will attempt to connect to that device rather than wait to receive an adv
 
 ## Transtek BLE Blood Pressure Monitor Protocol
 
-Transtek (OEM for Welch Allyn SureBP BP100 models 1500 and 1700) BLE blood pressure monitors
+Transtek (OEM for Welch Allyn BP100 models 1500 and 1700) BLE blood pressure monitors
 exchange commands with the client via client writes to a client-to-sever characteristic and device
 indications to a server-to-client characteristic subscribed to by the client.
 

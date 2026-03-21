@@ -105,13 +105,13 @@ Multi-byte data fields (in both commands and blood pressure data) are little end
 
 #### Known commands:
 
-- [s2c] 0xa0 setPassword(uint32le password) Set long-term password for use in challenge-response
-- [c2s] 0x21 setBroadcastID(uint32le broadcastId) Always set as 0x01 0x23 0x45 0x67
-- [s2c] 0xa1 setChallenge(uint32le challenge) Issue random four byte authentication challenge
-- [c2s] 0x20 setChallengeResponse(uint32le response) Auth response = challenge xor password
-- [c2s] 0x02 setTime(uint32le timestampSeconds) Set localtime in seconds since 2010-01-01
-- [s2c] 0x22 aboutToDisconnect()
-- [c2s] 0x22 waitingForData() Sent after receipt of each good blood pressure data record
+- [s2c] 0xa0 `setPassword(uint32le password)` Set long-term password for use in challenge-response
+- [c2s] 0x21 `setBroadcastID(uint32le broadcastId)` Always set as 0x01 0x23 0x45 0x67
+- [s2c] 0xa1 `setChallenge(uint32le challenge)` Issue random four byte authentication challenge
+- [c2s] 0x20 `setChallengeResponse(uint32le response)` Compute `response = challenge ^ password`
+- [c2s] 0x02 `setTime(uint32le timestampSeconds)` Set localtime in seconds since 2010-01-01
+- [s2c] 0x22 `aboutToDisconnect()`
+- [c2s] 0x22 `waitingForData()` Sent after receipt of each good blood pressure data record
 
 ### Typical sequence:
 

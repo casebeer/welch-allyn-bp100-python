@@ -55,6 +55,50 @@ script will attempt to connect to that device rather than wait to receive an adv
 
     venv/bin/wa [BLE address or UUID]
 
+## API
+
+For API usage, see the `bp100/cli.py` script that provides the `wa` CLI entrypoint. Basics:
+
+    import asyncio
+    import pprint
+    import bleak
+
+    from bp100 import (TranstekController, TranstekBleDriver, GattServices)
+
+    async def run():
+        # Use BleakScanner to find your device by advertised service UUID
+        async with bleak.BleakScanner(
+            service_uuids=[bleak.uuids.normalize_uuid_str(GattServices.TRANSTEK_BP.value)],
+            ) as scanner:
+            print("Scanning...")
+
+            async for device, advertisementData in scanner.advertisement_data():
+                if advertisementData.service_uuids:
+                    print(f"Got matching UUID: {advertisementData.service_uuids}")
+                    # return the first matching device seen
+                    break
+
+        # Pass the discovered BLEDevice to the client
+        # You could alternatively provide a BLE address (or on MacOS, UUID) in place of `device` and
+        # skip the discovery entirely
+        controller = TranstekController(TranstekBleDriver(device))
+
+        # Initialize the controller
+        await controller.initialize()
+
+        # Wait for all data to finish downloading. Avoid print() and other blocking calls until
+        # BLE data download is done to avoid breaking BLE timing
+        await controller.join()
+
+        # Print out the device data
+        pprint.pprint(controller.deviceInfo)
+
+        # Iterate over and print out the discovered BP data
+        async for data in controller.bpData():
+            pprint.pprint(data)
+
+    asyncio.run(run())
+
 ## Notes
 
 - During development, delays from printing to `stdout` caused sufficient BLE timing problems to

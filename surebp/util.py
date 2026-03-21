@@ -6,8 +6,10 @@ import datetime
 import time
 import struct
 import functools
-
 import random
+
+from dataclasses import dataclass
+
 
 def transtekChallengeResponse(challenge: bytearray, password: bytearray) -> bytearray:
     return bytearray([p ^ c for p, c in zip(password, challenge)])
@@ -40,8 +42,8 @@ def transtekCurrentTimestamp():
     return transtekTimestamp(datetime.datetime.now())
 
 
-# Compute Transtek timestamp as seconds since 2010-01-01 00:00:00
 def transtekTimestamp(dt):
+    # Compute Transtek timestamp as seconds since 2010-01-01 00:00:00
     epoch = datetime.datetime(2010, 1, 1, 0, 0, 0)
 
     # see dstRemovalCorrection() for explanation
@@ -51,25 +53,36 @@ def transtekTimestamp(dt):
     return timestampBytes
 
 
-# For some reason, the Welch Allyn Home app sends and interprets timestamps as
-# local time without DST. Not clear we need to accomodate this if we're the device's only
-# client, but for compatibility, we'll adjust our timestamps here.
 def dstRemovalCorrection():
+    # For some reason, the Welch Allyn Home app sends and interprets timestamps as
+    # local time without DST. Not clear we need to accomodate this if we're the device's only
+    # client, but for compatibility, we'll adjust our timestamps here.
     isDst = time.localtime().tm_isdst
     dstRemovalCorrection = datetime.timedelta(seconds=3600 if isDst else 0)
     return dstRemovalCorrection
 
 
+@dataclass
+class BpData:
+    systolic: int
+    diastolic: int
+    timestamp: datetime.datetime
+    heartrate: int
+    motionDetected: bool
+    irregularHeartbeat: bool
+
+
 def parseBpData(data: bytearray):
-    [ header, systolic, diastolic, map_, timestamp, heartrate, _, bpFlags, _, deviceFlags    ] = struct.unpack('<BHHHIHBBBB', data)
-    bpData = {
-        'systolic': systolic,
-        'diastolic': diastolic,
-        'timestamp': convertTimestampToDatetime(timestamp),
-        'heartrate': heartrate,
-        'motionDetected': ((bpFlags & 0x01) == 1),
-        'irregularHeartbeat': (((bpFlags >> 2) & 0x01) == 1),
-    }
+    [ header, systolic, diastolic, map_, timestamp, heartrate, _, bpFlags, _, deviceFlags ] =\
+        struct.unpack('<BHHHIHBBBB', data)
+    bpData = BpData(
+        systolic=systolic,
+        diastolic=diastolic,
+        timestamp=convertTimestampToDatetime(timestamp),
+        heartrate=heartrate,
+        motionDetected=((bpFlags & 0x01) == 1),
+        irregularHeartbeat=(((bpFlags >> 2) & 0x01) == 1),
+    )
     deviceBatteryOk = ((deviceFlags & 0x01) == 1)
     return {
         'bpData': bpData,

@@ -1,38 +1,36 @@
 
-import bleak
-from bleak import (
-    BleakScanner,
-)
-
 import logging
-bleak_logger = logging.getLogger("bleak")
-#bleak_logger.setLevel(logging.DEBUG)
-bleak_logger.setLevel(logging.INFO)
-logger = logging.getLogger(__name__)
-
-
+import bleak
 import asyncio
-import sys
 import pprint
+import argparse
+import sys
 
 from .TranstekController import TranstekController
 from .TranstekBleDriver import TranstekBleDriver
+from .bleUuids import GattServices
 
-from .bleUuids import (
-    GattServices,
-)
+bleak_logger = logging.getLogger("bleak")
+logger = logging.getLogger(__name__)
 
-async def main():
-    logging.basicConfig(level=logging.INFO)
-    #logging.basicConfig(level=logging.DEBUG)
+async def client(args):
+    bleak_logger.setLevel(logging.INFO)
+    args.verbose = min(args.verbose, 3)
+    match args.verbose:
+        case 0:
+            logging.basicConfig(level=logging.WARN)
+        case 1:
+            logging.basicConfig(level=logging.INFO)
+        case 2:
+            logging.basicConfig(level=logging.DEBUG)
+        case 3:
+            logging.basicConfig(level=logging.DEBUG)
+            bleak_logger.setLevel(logging.DEBUG)
 
-    # optional device address – connect directly to device without waiting for advertisements
-    deviceAddress = sys.argv[1] if len(sys.argv) > 1 else None
-
-    if deviceAddress is None:
+    if args.device is None:
         # Normalized service UUIDs since Bleak will not match on a short/16 bit UUID
         serviceUuids = [bleak.uuids.normalize_uuid_str(u) for u in [GattServices.TRANSTEK_BP.value]]
-        async with BleakScanner(
+        async with bleak.BleakScanner(
             service_uuids=serviceUuids,
             ) as scanner:
             logger.info(f"Scanning for service UUIDs {serviceUuids}...")
@@ -45,8 +43,8 @@ async def main():
                     break
             logger.debug("Broken out of scanning loop...")
     else:
-        logger.info(f"Connecting to specified BLE device with address {deviceAddress}")
-        device = deviceAddress
+        logger.info(f"Connecting to specified BLE device with address {args.device}")
+        device = args.device
 
     logger.info(f"Connecting to BP monitor {device}...")
 
@@ -65,7 +63,30 @@ async def main():
     async for bpData in transtekController.bpData():
         pprint.pprint(bpData)
 
+async def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        default=0,
+        action="count",
+        help="Set logging verbosity. Specify multiple times for more detail.",
+    )
+
+    parser.add_argument(
+        "device",
+        nargs="?",
+        default=None,
+        help="BLE device MAC address (or, on MacOS, device UUID) to connect to instead of scanning"
+             "for advertising devices."
+    )
+
+    args = parser.parse_args()
+    await client(args)
+
     return 0
+
 
 def run():
     return asyncio.run(main())

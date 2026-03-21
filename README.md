@@ -31,7 +31,7 @@ You'll need:
 
 *Note that using this script will download all blood pressure readings still on the device. Once a
 blood pressure reading has been downloaded by any app, it is erased from the device and will NOT be
-availalble for reading by the official Welch Allyn app.*
+available for reading by the official Welch Allyn app.*
 
 Use the `wa` CLI script (`bp100/cli.py`) to test connection to your blood pressure monitor.
 
@@ -79,8 +79,8 @@ For API usage, see the `bp100/cli.py` script that provides the `wa` CLI entrypoi
                     break
 
         # Pass the discovered BLEDevice to the client
-        # You could alternatively provide a BLE address (or on MacOS, UUID) in place of `device` and
-        # skip the discovery entirely
+        # You could alternatively provide a BLE address (or on MacOS, UUID) in place of `device`
+        # and skip the discovery entirely
         controller = TranstekController(TranstekBleDriver(device))
 
         # Initialize the controller
@@ -134,7 +134,7 @@ indications to a server-to-client characteristic subscribed to by the client.
 Before sending actual blood pressure data, the device requires the client to authenticate via a
 trivial challenge-response password authentication over the command characteristics.
 
-This "password" apperars to be the last 8 hex chars of the reported device info serial number,
+This "password" appears to be the last 8 hex chars of the reported device info serial number,
 interpreted as four bytes. This is also the byte-wise-reversed FIRST four bytes of the MAC address.
 
 After sending the challenge-response, the client also sets the device's time.

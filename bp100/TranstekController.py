@@ -44,7 +44,7 @@ followed by between zero and four bytes of data, depending on the specific comma
 Multi-byte data fields (in both commands and blood pressure data) are little endian unsigned
 16-bit or 32-bit integers.
 
-The "password" apperars to be the last 8 hex chars of the reported device info serial number,
+The "password" appears to be the last 8 hex chars of the reported device info serial number,
 interpreted as four bytes. This is also the byte-wise-reversed FIRST four bytes of the MAC address.
 
 ### Known commands:

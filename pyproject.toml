@@ -17,8 +17,5 @@ test = [
 [project.scripts]
 wa = "bp100.cli:run"
 
-#[tool.setuptools.packages.find]
-#where = ["bp100"]
-
 [tool.setuptools]
 packages = ["bp100"]

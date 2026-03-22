@@ -21,7 +21,7 @@ this protocol is in the `bp100` package in this project.
     git clone https://github.com/casebeer/welch-allyn-bp100-python
     cd welch-allyn-bp100-python
     python3 -m venv venv
-    venv/bin/pip install -e .
+    venv/bin/pip install -U pip && venv/bin/pip install -e .
 
 ## Usage
 

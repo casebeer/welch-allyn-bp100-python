@@ -98,9 +98,15 @@ The format is:
                  0x01 Device battery level OK: 1 = OK, 0 = Low battery
 '''
 class TranstekController(object):
-    def __init__(self, bleDriver):
+    defaultBroadcastId = bytearray([0x01, 0x23, 0x45, 0x67])
+
+    def __init__(self, bleDriver, broadcastId=None):
         self.bleDriver = bleDriver
-        self.password = None # will set password after readDeviceInfo
+
+        # byte sequence len 4 used to set BLE advertised name during pairing
+        self.broadcastId = broadcastId if broadcastId is not None else self.defaultBroadcastId
+
+        self.password = None # will set password after readDeviceInfo or receipt of 0xa0 setPassword
 
         self.bpDataQueue = asyncio.Queue()
 
@@ -205,9 +211,8 @@ class TranstekController(object):
                         "long-term and sent with any future data requests.")
             self.password = password
     async def setBroadcastId(self):
-        broadcastId = bytearray([0x01, 0x23, 0x45, 0x67])
-        logger.debug(f"[c2s] 0x21 setBroadcastId({broadcastId.hex()})")
-        command = bytearray([0x21]) + broadcastId
+        logger.debug(f"[c2s] 0x21 setBroadcastId({self.broadcastId.hex()})")
+        command = bytearray([0x21]) + self.broadcastId
         await self.sendCommand(command)
     async def setChallenge(self, challenge):
         logger.debug(f"[s2c] 0xa1 setChallenge({challenge.hex()})")

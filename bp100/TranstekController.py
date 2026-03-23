@@ -126,6 +126,9 @@ class TranstekController(object):
         logger.debug(pprint.pformat(self.deviceInfo))
 
         await self.bleDriver.subscribeToBpData(self.bpDataHandler)
+
+        # Once we've subscribed to the commands inidication characteristic, the Transtek protocol
+        # will begin when the device sends us an 0xa1 "setChallenge" command inidication.
         await self.bleDriver.subscribeToCommands(self.commandHandler)
 
         logger.debug("BLE indications configured.")
@@ -134,12 +137,19 @@ class TranstekController(object):
         logger.debug(f"[s2c] {data.hex()}")
         match data[0]:
             case 0xa0:
+                # n.b. we only receive this when connecting to a device for the first time
+                #      Generally, we're assuming the password is the last 8 hex chars of the
+                #      reported serial number, but if we get this a0 command, the password it
+                #      provides should override that assumption. Additionally, if the password
+                #      provided does not match the last 8 hex chars of the SN, swe should store it
+                #      long term and use that value instead of the presumed SN/MAC based password.
                 self.setPassword(data[1:5])
                 await self.setBroadcastId()
             case 0xa1:
                 await self.setChallenge(data[1:5])
                 await self.setTime()
                 # TODO: if pairing, then self.setWaitingForData()
+                await self.setWaitingForData()
             case 0x22:
                 logger.debug("[s2c] 0x22 deviceWillDisconnect")
                 await self.bleDriver.disconnect()
@@ -184,7 +194,16 @@ class TranstekController(object):
         return data
     def setPassword(self, password):
         logger.debug(f"[s2c] 0xa0 setPassword({password.hex()})")
-        pass
+        logger.info(f"Received long term password from device: {password.hex()}\n")
+        if password == self.password:
+            logger.info("This password matches the presumed BLE MAC-address derived password {self.password.hex()}, "
+                        "so doesn't need to be stored.")
+        else:
+            logger.warn(f"The long term password {password.hex()} received from the device does "
+                        "NOT match the normal BLE MAC-address derived password "
+                        f"{self.password.hex()}. The device-provided password must be stored "
+                        "long-term and sent with any future data requests.")
+            self.password = password
     async def setBroadcastId(self):
         broadcastId = bytearray([0x01, 0x23, 0x45, 0x67])
         logger.debug(f"[c2s] 0x21 setBroadcastId({broadcastId.hex()})")

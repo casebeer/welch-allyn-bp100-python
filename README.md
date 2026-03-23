@@ -168,6 +168,9 @@ Multi-byte data fields (in both commands and blood pressure data) are little end
 
 ### Typical sequence:
 
+- Take a blood pressure reading with the device. BLE activity begins when the Bluetooth symbol
+  begings flashing after the reading is complete.
+- [device] Sends BLE advertisements after BP reading is finished
 - [client] BLE connect/GATT setup.
 - [client] Read several standard device info characteristics from standard device info service.
 - [client] Subscribe to indications from server-to-client command characteristic.
@@ -188,6 +191,50 @@ disconnect (without sending further BP data nor retrying the failed indication).
 Any blood pressure data which *is* received and acknowledged by the a subscribed client's BLE stack
 will be deleted from the device's memory and not sent again. *Reading blood pressure data is a
 destructive action. Each BP data item can only be read once.*
+
+### Pairing sequence (and "password" receipt)
+
+A pairing sequence begins when the blood pressure device is started in pairing mode, by pressing and
+holding the on/off button for two seconds while the device is off.
+
+The device will beging sending BLE advertisements immediately without taking a blood pressure
+reading.
+
+BLE sequence:
+
+- Press and hold device on/off button while the device is off to enter pairing mode.
+- [device] Sends BLE advertisements immediately
+- [client] BLE connect/GATT setup.
+- [client] Read several standard device info characteristics from standard device info service.
+- [client] Subscribe to indications from server-to-client command characteristic.
+- [client] Subscribe to indications from blood pressure data characteristic.
+- **[device] Send password (0xa0).**
+- **[client] Send setBroadcastId (0x21).**
+- [device] Send challenge-response challenge (0xa1).
+- [client] Send challenge-response response (0x20).
+- [client] Set time offset in seconds since 2010-01-01 00:00:00 local time.
+- [client] Send waiting for data command (0x22)
+- [device disconnects]
+
+When in pairing mode, the device's BLE advertisement name will begin `1BP100`. When not in pairing
+mode, the device's advertised name will begin `0BP100...`.
+
+#### Receiving the "password"
+
+A four byte "password" is required to connect to the BP device and download data. Normally, this
+library derives that password from the serial number reported by the device.
+
+When connected to in pairing mode, the device will send the `0xa0` "setPassword" command with the
+long term password needed to connect to the device.
+
+This password appears to match the last eight hex digits of the serial number reported via the GATT
+Device Information service, interpreted as four bytes. Since that serial number is just the hex
+string representation of the byte-wise-reversed BLE MAC address, it's also the first four bytes of
+the BLE MAC, in byte-reversed order.
+
+If you receive an `0xa0` `setPassword` command whose password does *not* match this MAC-derived
+password, you should store that received password long term for use in future transactions. The
+`0xa0` password notification is only send when the device is in pairing mode.
 
 ### Blood pressure data:
 

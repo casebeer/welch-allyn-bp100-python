@@ -72,16 +72,16 @@ For API usage, see the `bp100/cli.py` script that provides the `wa` CLI entrypoi
             ) as scanner:
             print("Scanning...")
 
-            async for device, advertisementData in scanner.advertisement_data():
-                if advertisementData.service_uuids:
-                    print(f"Got matching UUID: {advertisementData.service_uuids}")
+            async for device, ad in scanner.advertisement_data():
+                if ad.service_uuids:
+                    print(f"Got matching UUID: {ad.service_uuids} ({ad.local_name})")
                     # return the first matching device seen
                     break
 
         # Pass the discovered BLEDevice to the client
         # You could alternatively provide a BLE address (or on MacOS, UUID) in place of `device`
         # and skip the discovery entirely
-        controller = TranstekController(TranstekBleDriver(device))
+        controller = TranstekController(TranstekBleDriver(device, advName=ad.local_name))
 
         # Initialize the controller
         await controller.initialize()
@@ -216,8 +216,20 @@ BLE sequence:
 - [client] Send waiting for data command (0x22)
 - [device disconnects]
 
-When in pairing mode, the device's BLE advertisement name will begin `1BP100`. When not in pairing
-mode, the device's advertised name will begin `0BP100...`.
+When in pairing mode, the device's BLE advertisement name will be `1BP100`.
+
+When not in pairing mode, the device's advertised name will begin with `0BP100`, followed by the hex
+string representation of the four bytes sent by the client with the `0x21` `setBroadcastId` command
+during pairing. Typically this is `0BP10001234567`.
+
+Note that to see the advertised name, you should read the `ad.local_name` field from a
+`BleakScanner()` callback, not the `device.name` field, which may be cached by the OS:
+
+    async with bleak.BleakScanner(
+        service_uuids=[bleak.uuids.normalize_uuid_str(GattServices.TRANSTEK_BP.value)],
+        ) as scanner:
+        async for device, ad in scanner.advertisement_data():
+            print(f"advertised name: {ad.local_name} cached name: {device.name}")
 
 #### Receiving the "password"
 

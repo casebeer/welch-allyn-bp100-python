@@ -10,6 +10,11 @@ import pprint
 from bleak import (
     BleakGATTCharacteristic,
 )
+from bleak_retry_connector import (
+    BleakClientWithServiceCache,
+    establish_connection,
+    retry_bluetooth_connection_error,
+)
 
 from .bleUuids import (
     GattServices,
@@ -22,28 +27,38 @@ BLE_CONNECT_TIMEOUT_SECONDS = 60
 class TranstekBleDriver(object):
     def __init__(self, deviceOrAddress):
         self.deviceOrAddress = deviceOrAddress
-        self.client = BleakClient(
-                        deviceOrAddress,
-                        disconnected_callback=lambda client: asyncio.create_task(self.disconnect()),
-                        timeout=BLE_CONNECT_TIMEOUT_SECONDS
-                      )
-        self.is_connected = self.client.is_connected
+        self.deviceName = getattr(deviceOrAddress, 'name',
+                            getattr(deviceOrAddress, 'address',
+                            f"TranstekBleDevice str(deviceOrAddress)"))
+        self.is_connected = False
         self.finished = asyncio.Event()
 
+    #@retry_bluetooth_connection_error
     async def connect(self):
-        await self.client.connect()
-        self.bpService = self.client.services.get_service(
-                                GattServices.TRANSTEK_BP.value)
-        self.bpChar = self.bpService.get_characteristic(
-                                TranstekCharacteristics.BP_DATA_INDICATE.value)
-        self.c2sCommandChar = self.bpService.get_characteristic(
-                                TranstekCharacteristics.C2S_COMMAND.value)
-        self.s2cCommandChar = self.bpService.get_characteristic(
-                                TranstekCharacteristics.S2C_COMMAND_INDICATE.value)
+        self.client = await establish_connection(
+            BleakClientWithServiceCache,
+            self.deviceOrAddress,
+            self.deviceName,
+            disconnected_callback=lambda client: asyncio.create_task(self.disconnect()),
+            timeout=BLE_CONNECT_TIMEOUT_SECONDS
+        )
+        try:
+            self.bpService = self.client.services.get_service(
+                                    GattServices.TRANSTEK_BP.value)
+            self.bpChar = self.bpService.get_characteristic(
+                                    TranstekCharacteristics.BP_DATA_INDICATE.value)
+            self.c2sCommandChar = self.bpService.get_characteristic(
+                                    TranstekCharacteristics.C2S_COMMAND.value)
+            self.s2cCommandChar = self.bpService.get_characteristic(
+                                    TranstekCharacteristics.S2C_COMMAND_INDICATE.value)
 
-        self.is_connected = self.client.is_connected
+            self.is_connected = self.client.is_connected
 
-        logger.debug(self.formatGattInfo())
+            logger.info(f"Connected to device {self.client.address} ({self.client.name})")
+            logger.debug(self.formatGattInfo())
+        except BleakError as e:
+            logger.warn(f"BleakError setting up Transtek BLE client: {e}, disconnecting")
+            self.disconnect()
 
     async def disconnect(self):
         logger.debug("Disconnecting and cleaning up TranstekBleDriver...")

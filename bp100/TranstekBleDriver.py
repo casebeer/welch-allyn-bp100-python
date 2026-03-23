@@ -25,9 +25,10 @@ logger = logging.getLogger(__name__)
 BLE_CONNECT_TIMEOUT_SECONDS = 60
 
 class TranstekBleDriver(object):
-    def __init__(self, deviceOrAddress):
+    def __init__(self, deviceOrAddress, advName=None):
         self.deviceOrAddress = deviceOrAddress
-        self.deviceName = getattr(deviceOrAddress, 'name',
+        self.deviceName = advName if advName is not None else \
+                            getattr(deviceOrAddress, 'name',
                             getattr(deviceOrAddress, 'address',
                             f"TranstekBleDevice str(deviceOrAddress)"))
         self.is_connected = False
@@ -54,7 +55,7 @@ class TranstekBleDriver(object):
 
             self.is_connected = self.client.is_connected
 
-            logger.info(f"Connected to device {self.client.address} ({self.client.name})")
+            logger.info(f"Connected to device {self.client.address} ({self.deviceName})")
             logger.debug(self.formatGattInfo())
         except BleakError as e:
             logger.warn(f"BleakError setting up Transtek BLE client: {e}, disconnecting")

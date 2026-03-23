@@ -35,9 +35,10 @@ async def client(args):
             ) as scanner:
             logger.info(f"Scanning for service UUIDs {serviceUuids}...")
 
-            async for bleDevice, advertisementData in scanner.advertisement_data():
-                if advertisementData.service_uuids:
-                    logger.info(f"Got matching UUID: {advertisementData.service_uuids}")
+            async for bleDevice, ad in scanner.advertisement_data():
+                advName = ad.local_name
+                if ad.service_uuids:
+                    logger.info(f"Got matching UUID: {ad.service_uuids} {advName}")
                     # return the first matching device seen
                     device = bleDevice
                     break
@@ -45,10 +46,11 @@ async def client(args):
     else:
         logger.info(f"Connecting to specified BLE device with address {args.device}")
         device = args.device
+        advName = None
 
-    logger.info(f"Connecting to BP monitor {device}...")
+    logger.info(f"Connecting to BP monitor {device} (advertised name {advName})...")
 
-    transtekController = TranstekController(TranstekBleDriver(device))
+    transtekController = TranstekController(TranstekBleDriver(device, advName=advName))
 
     # Once the controller is initialized, it will respond asynchronously
     # to BLE indications from the BP device.

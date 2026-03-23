@@ -48,10 +48,12 @@ class TranstekBleDriver(object):
     async def disconnect(self):
         logger.debug("Disconnecting and cleaning up TranstekBleDriver...")
         # cleanup
-        if self.client.is_connected:
-            await self.client.disconnect()
-        self.is_connected = False
-        self.finished.set()
+        try:
+            if self.client.is_connected:
+                await self.client.disconnect()
+        finally:
+            self.is_connected = False
+            self.finished.set()
 
     async def join(self):
         '''Wait until this bleDriver's BleakClient has disconnected'''
@@ -99,6 +101,8 @@ class TranstekBleDriver(object):
         retries = 3
         while retries > 0:
             retries -= 1
+            if not self.is_connected:
+                break
             try:
                 logger.debug(f"Sending command to server: {commandBytes.hex()}")
                 await self.client.write_gatt_char(self.c2sCommandChar, commandBytes, response=True)

@@ -25,8 +25,11 @@ class MockTranstekBleDriver(object):
     def __init__(self, client=None):
         self.mockServer = MockTranstekBpMonitor(disconnectHandler=self.disconnect)
         self.finished = asyncio.Event()
+        self.disconnectCallback = None
     async def connect(self):
         return
+    def setDisconnectCallback(self, handler):
+        self.disconnectCallback = handler
     async def subscribeToCommands(self, handler):
         await self.mockServer.subscribeToCommands(handler)
     async def subscribeToBpData(self, handler):
@@ -37,6 +40,8 @@ class MockTranstekBleDriver(object):
         await self.mockServer.c2sCommand(commandBytes)
     async def disconnect(self):
         self.finished.set()
+        if self.disconnectCallback is not None:
+            self.disconnectCallback()
     async def join(self):
         await self.finished.wait()
 

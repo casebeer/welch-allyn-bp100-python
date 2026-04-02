@@ -31,8 +31,16 @@ class TranstekBleDriver(object):
                             getattr(deviceOrAddress, 'name',
                             getattr(deviceOrAddress, 'address',
                             f"TranstekBleDevice str(deviceOrAddress)"))
+        self.reset()
+
+    def reset(self):
         self.is_connected = False
         self.finished = asyncio.Event()
+        self.disconnectCallback = None
+
+    def clientDisconnectHandler(self, client):
+        logger.info(f"Disconnected from device {client.address} ({self.deviceName})")
+        asyncio.create_task(self.disconnect())
 
     #@retry_bluetooth_connection_error
     async def connect(self):
@@ -40,7 +48,7 @@ class TranstekBleDriver(object):
             BleakClientWithServiceCache,
             self.deviceOrAddress,
             self.deviceName,
-            disconnected_callback=lambda client: asyncio.create_task(self.disconnect()),
+            disconnected_callback=self.clientDisconnectHandler,
             timeout=BLE_CONNECT_TIMEOUT_SECONDS
         )
         try:
@@ -71,6 +79,10 @@ class TranstekBleDriver(object):
             self.is_connected = False
             self.finished.set()
 
+        # call registered disconnect handler
+        if self.disconnectCallback is not None:
+            self.disconnectCallback()
+
     async def join(self):
         '''Wait until this bleDriver's BleakClient has disconnected'''
         if not self.is_connected:
@@ -98,6 +110,9 @@ class TranstekBleDriver(object):
 
         return "\n".join(response)
 
+    def setDisconnectCallback(self, handler):
+        self.disconnectCallback = handler
+
     async def subscribeToCommands(self, handler):
         async def wrapper(characteristic: BleakGATTCharacteristic, data: bytearray):
             logger.debug(f"[wrapper] command characteristic callback: {data.hex()}")
@@ -114,18 +129,32 @@ class TranstekBleDriver(object):
         return await self.client.read_gatt_char(char)
 
     async def writeCommand(self, commandBytes):
+        '''
+        Perform GATT writeWithResponse to the command characteristic
+
+        Note that failure to write is an important GATT server response in and of itself, since it
+        usually indicates we're not properly authenticated to the BP device.
+        '''
         retries = 3
         while retries > 0:
             retries -= 1
-            if not self.is_connected:
+            if not self.is_connected or not self.client.is_connected:
                 break
             try:
                 logger.debug(f"Sending command to server: {commandBytes.hex()}")
                 await self.client.write_gatt_char(self.c2sCommandChar, commandBytes, response=True)
                 return
             except Exception as e:
-                logger.error(f"Problem writing to command characteristic. client.is_connected = {self.client.is_connected} Error: {e}")
+                logger.error(f"Problem writing {commandBytes.hex()} to command characteristic. "
+                             f"client.is_connected={self.client.is_connected} retries={retries} "
+                             f"Error: {e}")
 
+        # if we haven't returned directly from the while loop, we've exahaused our write retries and
+        # we should presume the GATT server has rejected us.
+        raise BleWriteError("Unable to write to command characteristic.")
+
+class BleWriteError(Exception):
+     pass
 
 def gattInfo(client):
     services = client.services.services

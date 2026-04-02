@@ -4,11 +4,12 @@ import logging
 from .bleUuids import (
     DeviceInfoCharacteristics,
 )
-
-from .TranstekBleDriver import TranstekBleDriver
+from .password import PasswordStrategy
+from .TranstekBleDriver import TranstekBleDriver, BleWriteError
 
 import pprint
 import asyncio
+import enum
 
 from . import util
 
@@ -114,7 +115,15 @@ class TranstekController(object):
         # provided by the device.
         self.password = password
 
+        if self.password is not None:
+            self.passwordStrategy = PasswordStrategy.SPECIFIED_PASSWORD
+        else:
+            self.passwordStrategy = PasswordStrategy.defaultGuess()
+
+        self.finished = asyncio.Event()
         self.bpDataQueue = asyncio.Queue()
+
+        self.state = BpStates.INIT
 
     @property
     def password(self):
@@ -130,15 +139,10 @@ class TranstekController(object):
             logger.warn(f"Attempted to set invalid password '{value}' that is not 4 bytes.")
             self.deviceInfo['password'] = None
 
-    async def onFinished(self):
-        await self.bleDriver.finished.wait()
-        self.close()
-
     async def initialize(self):
-        logger.debug("Initializing Transtek BLE client...")
+        logger.debug(f"Connecting to BP device using password strategy {self.passwordStrategy}...")
 
         await self.bleDriver.connect()
-        asyncio.create_task(self.onFinished())  # cleanup callback when bleClient is finished
 
         self.deviceInfo.update(await self.getDeviceInfo())
 
@@ -147,13 +151,8 @@ class TranstekController(object):
             self.deviceInfo[DeviceInfoCharacteristics.SYSTEM_ID.name] = \
                 self.deviceInfo[DeviceInfoCharacteristics.SYSTEM_ID.name].hex()
 
-        if self.password is None:
-            # Set password using last 8 hex chars of reported SERIAL_NUMBER
-            # n.b. the reported serial number is just the device's BLE MAC address reversed octet-wise,
-            # i.e. 11:22:33:44:55:66 -> 66:55:44:33:22:11, so the password is also the first four bytes
-            # of the MAC address, byte-wise reversed.
-            serialNumber = self.deviceInfo[DeviceInfoCharacteristics.SERIAL_NUMBER.name]
-            self.password = bytes.fromhex(serialNumber[-8:])
+        if self.passwordStrategy.isMacBased():
+            self.setPasswordFromSn()
 
         logger.debug(pprint.pformat(self.deviceInfo))
 
@@ -163,7 +162,48 @@ class TranstekController(object):
         # will begin when the device sends us an 0xa1 "setChallenge" command inidication.
         await self.bleDriver.subscribeToCommands(self.commandHandler)
 
+        self.bleDriver.setDisconnectCallback(self.disconnectHandler)
+
         logger.debug("BLE indications configured.")
+
+    @property
+    def serialNumber(self):
+        return self.deviceInfo[DeviceInfoCharacteristics.SERIAL_NUMBER.name]
+
+    def setPasswordFromSn(self):
+        self.password = self.passwordStrategy.passwordFromSn(self.serialNumber)
+        logger.debug(f"Setting password to '{self.password.hex()}' "
+                     f"from serial number using {self.passwordStrategy}")
+
+    def disconnectHandler(self):
+        if self.state == BpStates.AUTHENTICATING:
+            # let reconnectAfterAuthError handle cleaning up (or not)
+            logger.debug(f"BLE driver disconnected while {self.state}. Letting reconnectAfterAuthError continue...")
+        else:
+            logger.debug(f"BLE driver disconnected with no auth retry needed, cleaning up and exiting...")
+            self.finished.set()
+            self.close()
+
+    async def reconnectAfterAuthError(self):
+        logger.debug("Attempting to reconnect BLE driver to try another password...")
+        # clean up old connection
+        await self.bleDriver.disconnect()
+
+        # reset driver to default settings
+        self.bleDriver.reset()
+
+        # advance to next password strategy
+        logger.debug(f"Moving to next strategy after {self.passwordStrategy} before reconnecting...")
+        self.passwordStrategy = self.passwordStrategy.next()
+        if self.passwordStrategy == PasswordStrategy.FAILED:
+            logger.error("All password strategies exhausted. Failed to authenticate.")
+            self.finished.set()
+            return
+
+        logger.debug("Reconnecting...")
+
+        # reconnect
+        await self.initialize()
 
     async def commandHandler(self, data: bytearray):
         logger.debug(f"[s2c] {data.hex()}")
@@ -175,21 +215,44 @@ class TranstekController(object):
                 #      provides should override that assumption. Additionally, if the password
                 #      provided does not match the last 8 hex chars of the SN, swe should store it
                 #      long term and use that value instead of the presumed SN/MAC based password.
+                self.state = self.state.transition('pair')
+                self.passwordStrategy = PasswordStrategy.PROVIDED_BY_DEVICE
+
                 self.setPassword(data[1:5])
                 await self.setBroadcastId()
             case 0xa1:
+                self.state = self.state.transition('authenticate')
                 await self.setChallenge(data[1:5])
-                await self.setTime()
-                # TODO: if pairing, then self.setWaitingForData()
-                await self.setWaitingForData()
+
+                try:
+                    await self.setTime()
+
+                    # notify state machine setTime writeWithResponse has succeeded (and thus our
+                    # authentication has been accepted)
+                    self.state = self.state.transition('authenticated')
+                    logger.info(f"Password '{self.password.hex()}' "
+                                f"via {self.passwordStrategy} accepted.")
+                except BleWriteError:
+                    # if setTime fails, our authentication has likely been rejected
+                    logger.error("Write failure after auth, presume password "
+                                 f"'{self.password.hex()}' via {self.passwordStrategy} "
+                                 "has been rejected")
+                    await self.reconnectAfterAuthError()
+                    return
+
+                if self.state == BpStates.PAIRING:
+                    await self.setWaitingForData()
             case 0x22:
                 logger.debug("[s2c] 0x22 deviceWillDisconnect")
                 await self.bleDriver.disconnect()
             case _:
                 pass
 
+    # TODO: Add state machine update so we can error if we get no BP data
     async def bpDataHandler(self, dataBytes: bytearray):
         data = util.parseBpData(dataBytes)
+
+        logger.info(f"Got BP data from {data['bpData'].timestamp}")
 
         self.bpDataQueue.put_nowait(data) # n.b. exception if Queue full
 
@@ -215,8 +278,8 @@ class TranstekController(object):
             self.bpDataQueue.task_done()
 
     async def join(self):
-        '''Wait until this Controller's life cycle is finished (as determined by its bleDriver)'''
-        await self.bleDriver.join()
+        '''Wait until this Controller's life cycle is finished'''
+        await self.finished.wait()
         self.close()
 
     async def getDeviceInfo(self):
@@ -225,17 +288,16 @@ class TranstekController(object):
             data[char.name] = await self.bleDriver.readDeviceInfoCharacteristic(char.value)
         return data
     def setPassword(self, password):
-        logger.debug(f"[s2c] 0xa0 setPassword({password.hex()})")
-        logger.info(f"Received long term password from device: {password.hex()}\n")
-        if password == self.password:
-            logger.info("This password matches the presumed BLE MAC-address derived password {self.password.hex()}, "
-                        "so doesn't need to be stored.")
+        logger.info(f"[s2c] 0xa0 setPassword({password.hex()}) "
+                    f"Received long term password from device: {password.hex()}")
+        if password in PasswordStrategy.generateAllSnPasswords(self.serialNumber):
+            logger.info(f"This password matches one of the presumed BLE MAC-address derived "
+                         "passwords, so doesn't need to be stored.")
         else:
             logger.warn(f"The long term password {password.hex()} received from the device does "
-                        "NOT match the normal BLE MAC-address derived password "
-                        f"{self.password.hex()}. The device-provided password must be stored "
-                        "long-term and sent with any future data requests.")
-            self.password = password
+                        "NOT match any of the BLE MAC-address derived password possibilities,"
+                        "so must be stored long-term and sent with any future data requests.")
+        self.password = password
     async def setBroadcastId(self):
         logger.debug(f"[c2s] 0x21 setBroadcastId({self.broadcastId.hex()})")
         command = bytearray([0x21]) + self.broadcastId
@@ -243,6 +305,7 @@ class TranstekController(object):
     async def setChallenge(self, challenge):
         logger.debug(f"[s2c] 0xa1 setChallenge({challenge.hex()})")
         response = util.transtekChallengeResponse(challenge, self.password)
+        logger.debug(f"      Computing challenge response withpassword {self.password.hex()}")
         await self.setChallengeResponse(response)
     async def setChallengeResponse(self, response):
         await asyncio.sleep(BLE_RESPONSE_DELAY)
@@ -263,3 +326,26 @@ class TranstekController(object):
     async def sendCommand(self, commandBytes):
         logger.debug(f"[c2s] {commandBytes.hex()}")
         await self.bleDriver.writeCommand(commandBytes)
+
+class BpStates(enum.Enum):
+    INIT = enum.auto()
+    PAIRING = enum.auto()
+    PAIRED = enum.auto()
+    AUTHENTICATING = enum.auto()
+    AUTHENTICATED = enum.auto()
+    AUTH_FAILED = enum.auto
+
+    def transition(self, action):
+        match self, action:
+            case state, 'pair':
+                return BpStates.PAIRING
+            case BpStates.PAIRING, 'authenticated':
+                return BpStates.PAIRED
+
+            case state, 'authenticate':
+                return BpStates.AUTHENTICATING
+            case BpStates.AUTHENTICATING, 'authenticated':
+                return BpStates.AUTHENTICATED
+
+class AuthenticationError(Exception):
+    pass

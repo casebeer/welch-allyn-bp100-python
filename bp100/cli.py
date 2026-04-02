@@ -50,7 +50,10 @@ async def client(args):
 
     logger.info(f"Connecting to BP monitor {device} (advertised name {advName})...")
 
-    transtekController = TranstekController(TranstekBleDriver(device, advName=advName))
+    transtekController = TranstekController(
+                            TranstekBleDriver(device, advName=advName),
+                            password=args.password
+                            )
 
     # Once the controller is initialized, it will respond asynchronously
     # to BLE indications from the BP device.
@@ -65,8 +68,37 @@ async def client(args):
     async for bpData in transtekController.bpData():
         pprint.pprint(bpData)
 
+
+def argparseHexPasswordType(hexPassword):
+    '''Convert 8 digit hex password to 4 bytes or error out'''
+    # if password is not 8 hex digits, password will default to MAC-based password
+    try:
+        password = bytes.fromhex(hexPassword)
+        if len(password) != 4:
+            raise argparse.ArgumentTypeError(
+                f"Password '{hexPassword}' must be 8 hex characters long.")
+    except argparse.ArgumentTypeError:
+        raise
+    except:
+        raise argparse.ArgumentTypeError(
+                f"Password '{hexPassword}' cannot be decoded as hexadecimal.")
+    return password
+
+
 async def main():
     parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "-p",
+        "--password",
+        type=argparseHexPasswordType,
+        default=None,
+        help="Use provided password to connect to device. Should be 8 hex digits. Get the device "
+             "password by holding the on/off button for two seconds when the device is off to "
+             "enter paring mode, then running the `wa` script. The script will print the device "
+             "password to the console. Note this password and provide it with subsequent runs if "
+             "the script says that it differs from the default MAC-based password."
+    )
 
     parser.add_argument(
         "-v",

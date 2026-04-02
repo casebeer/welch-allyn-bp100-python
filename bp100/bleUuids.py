@@ -19,6 +19,7 @@ class DeviceInfoCharacteristics(Enum):
          bytes two and three of the template UUID "0000xxxx-0000-1000-8000-00805f9b34fb" with the
          short UUID.
     '''
+    SYSTEM_ID = "2a23"
     MODEL_NUMBER = "2a24"
     SERIAL_NUMBER = "2a25"
     FIRMWARE_REVISION = "2a26"

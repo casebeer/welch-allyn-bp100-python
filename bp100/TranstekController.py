@@ -100,15 +100,35 @@ The format is:
 class TranstekController(object):
     defaultBroadcastId = bytearray([0x01, 0x23, 0x45, 0x67])
 
-    def __init__(self, bleDriver, broadcastId=None):
-        self.bleDriver = bleDriver
+    def __init__(self, bleDriver: TranstekBleDriver, broadcastId=None, password=None):
+        self.deviceInfo = {}
+        self.bleDriver: TranstekBleDriver = bleDriver
 
         # byte sequence len 4 used to set BLE advertised name during pairing
-        self.broadcastId = broadcastId if broadcastId is not None else self.defaultBroadcastId
+        # broadcastId is ONLY used during pairing to set the device's advertising name
+        self.broadcastId: bytes[4] = broadcastId if broadcastId is not None \
+                                        else self.defaultBroadcastId
 
-        self.password = None # will set password after readDeviceInfo or receipt of 0xa0 setPassword
+        # If password is None, password will default to MAC-based password.
+        # If device is in paring mode, any password set here will be overwritten by the password
+        # provided by the device.
+        self.password = password
 
         self.bpDataQueue = asyncio.Queue()
+
+    @property
+    def password(self):
+        return self._password
+
+    @password.setter
+    def password(self, value):
+        '''Make sure self.deviceInfo gets copy of password any time it's set.'''
+        self._password = value
+        try:
+            self.deviceInfo['password'] = value.hex() if value is not None else None
+        except:
+            logger.warn(f"Attempted to set invalid password '{value}' that is not 4 bytes.")
+            self.deviceInfo['password'] = None
 
     async def onFinished(self):
         await self.bleDriver.finished.wait()
@@ -120,14 +140,20 @@ class TranstekController(object):
         await self.bleDriver.connect()
         asyncio.create_task(self.onFinished())  # cleanup callback when bleClient is finished
 
-        self.deviceInfo = await self.getDeviceInfo()
+        self.deviceInfo.update(await self.getDeviceInfo())
 
-        # Set password using last 8 hex chars of reported SERIAL_NUMBER
-        # n.b. the reported serial number is just the device's BLE MAC address reversed octet-wise,
-        # i.e. 11:22:33:44:55:66 -> 66:55:44:33:22:11, so the password is also the first four bytes
-        # of the MAC address, byte-wise reversed.
-        serialNumber = self.deviceInfo[DeviceInfoCharacteristics.SERIAL_NUMBER.name]
-        self.password = bytes.fromhex(serialNumber[-8:])
+        if type(self.deviceInfo.get(DeviceInfoCharacteristics.SYSTEM_ID.name, None)) == bytearray:
+            # convert system_id to hex
+            self.deviceInfo[DeviceInfoCharacteristics.SYSTEM_ID.name] = \
+                self.deviceInfo[DeviceInfoCharacteristics.SYSTEM_ID.name].hex()
+
+        if self.password is None:
+            # Set password using last 8 hex chars of reported SERIAL_NUMBER
+            # n.b. the reported serial number is just the device's BLE MAC address reversed octet-wise,
+            # i.e. 11:22:33:44:55:66 -> 66:55:44:33:22:11, so the password is also the first four bytes
+            # of the MAC address, byte-wise reversed.
+            serialNumber = self.deviceInfo[DeviceInfoCharacteristics.SERIAL_NUMBER.name]
+            self.password = bytes.fromhex(serialNumber[-8:])
 
         logger.debug(pprint.pformat(self.deviceInfo))
 

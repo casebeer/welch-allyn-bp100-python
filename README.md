@@ -191,7 +191,9 @@ Multi-byte data fields (in both commands and blood pressure data) are little end
 - [client] Subscribe to indications from blood pressure data characteristic.
 - [device] Send challenge-response challenge (0xa1).
 - [client] Send challenge-response response (0x20).
-- [client] Set time offset in seconds since 2010-01-01 00:00:00 local time.
+- [client] Set time offset in seconds since 2010-01-01 00:00:00 local time. If this write fails
+  and/or the device terminates the connection at this point, the device has rejected the password we
+  used to compute the authentication response.
 - [device] Send BP data records via indication to BP data characterisitic (0x8a91).
 - [client] Send waiting for data command (0x22)
 - ... repeat BP data + waiting for data until all BP data sent ...

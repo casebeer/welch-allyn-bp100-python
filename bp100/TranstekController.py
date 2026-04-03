@@ -240,7 +240,7 @@ class TranstekController(object):
                     await self.reconnectAfterAuthError()
                     return
 
-                if self.state == BpStates.PAIRING:
+                if self.state == BpStates.PAIRED:
                     await self.setWaitingForData()
             case 0x22:
                 logger.debug("[s2c] 0x22 deviceWillDisconnect")
@@ -291,7 +291,7 @@ class TranstekController(object):
         logger.info(f"[s2c] 0xa0 setPassword({password.hex()}) "
                     f"Received long term password from device: {password.hex()}")
         if password in PasswordStrategy.generateAllSnPasswords(self.serialNumber):
-            logger.info(f"This password matches one of the presumed BLE MAC-address derived "
+            logger.info(f"This password matches one of the guessed BLE MAC-address derived "
                          "passwords, so doesn't need to be stored.")
         else:
             logger.warn(f"The long term password {password.hex()} received from the device does "
@@ -333,7 +333,6 @@ class BpStates(enum.Enum):
     PAIRED = enum.auto()
     AUTHENTICATING = enum.auto()
     AUTHENTICATED = enum.auto()
-    AUTH_FAILED = enum.auto
 
     def transition(self, action):
         match self, action:
@@ -342,10 +341,12 @@ class BpStates(enum.Enum):
             case BpStates.PAIRING, 'authenticated':
                 return BpStates.PAIRED
 
-            case state, 'authenticate':
+            case BpStates.INIT, 'authenticate':
                 return BpStates.AUTHENTICATING
             case BpStates.AUTHENTICATING, 'authenticated':
                 return BpStates.AUTHENTICATED
+            case _:
+                return self
 
 class AuthenticationError(Exception):
     pass

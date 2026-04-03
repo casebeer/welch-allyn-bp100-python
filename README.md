@@ -333,3 +333,5 @@ The format is:
   minimise risk of missed BLE data.
 - Move BLE client into a separate thread to decouple from end-user blocking calls (like printing
   while reading from the `TranstekController.bpData()` async generator.
+- Move away from async context manager Bleak APIs for better compatibility e.g. with Home Assistant
+  remote bluetooth proxies.

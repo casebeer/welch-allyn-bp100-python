@@ -55,6 +55,17 @@ script will attempt to connect to that device rather than wait to receive an adv
 
     venv/bin/wa [BLE address or UUID]
 
+If you want a little more information about what's happening during the connection, use the
+`--verbose`/`-v` option one or more times:
+
+    wa -v # INFO level logging to stderr
+    wa -vv # DEBUG level logging to stderr
+
+To specify a four byte password rather than have the library guess a password based on the GATT
+serial number/MAC, pass the `--password`/`-p` argument with 8 hex characters:
+
+    wa --password aabbccdd
+
 ## API
 
 For API usage, see the `bp100/cli.py` script that provides the `wa` CLI entrypoint. Basics:
@@ -231,22 +242,66 @@ Note that to see the advertised name, you should read the `ad.local_name` field 
         async for device, ad in scanner.advertisement_data():
             print(f"advertised name: {ad.local_name} cached name: {device.name}")
 
-#### Receiving the "password"
+#### Receiving the "password" via pairing
 
 A four byte "password" is required to connect to the BP device and download data. Normally, this
 library derives that password from the serial number reported by the device.
 
-When connected to in pairing mode, the device will send the `0xa0` "setPassword" command with the
-long term password needed to connect to the device.
+When connected to in pairing mode (by holding the on/off button for two seconds while the device is
+off), the device will send the `0xa0` "setPassword" command with the long term password needed to
+connect to the device in the future.
 
-This password appears to match the last eight hex digits of the serial number reported via the GATT
-Device Information service, interpreted as four bytes. Since that serial number is just the hex
-string representation of the byte-wise-reversed BLE MAC address, it's also the first four bytes of
-the BLE MAC, in byte-reversed order.
+#### Deriving the password from the MAC
 
-If you receive an `0xa0` `setPassword` command whose password does *not* match this MAC-derived
-password, you should store that received password long term for use in future transactions. The
-`0xa0` password notification is only send when the device is in pairing mode.
+This password appears to be hard-coded per device and based on the device's Bluetooth MAC address.
+
+I've seen two variants: one that uses the last four bytes of the little-endian (wire format) MAC
+address, and one that uses the first four bytes.
+
+Note that Bluetooth MAC addresses (a.k.a. BDADDR) are always displayed in big-endian format, but the
+wire format in a Bluetooth packet is little-endian.
+
+Additionally, since on MacOS the actual Bluetooth MACs are not accessible for privacy reasons, this
+library derives the BDADDR from the "serial number" characteristic of the GATT device information
+service. There are at least two different variations of the GATT serial number: one holding the
+little-endian wire format MAC, and one holding the big-endian display-format MAC.
+
+This gives four possible ways to derive the hardcoded password:
+
+1. Serial number is little-endian/wire MAC, password is last 4 bytes of little-endian/wire MAC
+   (seen on older H-BP100SBP model 1700 device with detachable BP cuff and marking "Ver. A"
+   on sticker)
+2. Serial number is big-endian/display MAC, password is first 4 bytes of little-endian/wire MAC
+   (seen on newer H-BP100SBP device with non-detachable BP cuff and marking "Ver. B" on sticker)
+3. Serial number is little-endian/wire MAC, password is first 4 bytes of little-endian/wire MAC
+4. Serial number is big-endian/display MAC, password is last 4 bytes of little-endian/wire MAC
+
+By default, this library will try each of these four password variants, in this order. To prevent
+this, specify a password when creating a `TranstekController` instance or pass the `--password`
+argument to the `wa` CLI program.
+
+If you receive an `0xa0` `setPassword` command whose password does *not* match any of these
+MAC-derived passwords, you should store that received password long term for use in future
+transactions. The `0xa0` password notification is only sent when the device is in pairing mode.
+
+Worked examples:
+
+Assume the Bluetooth MAC address is `12:34:56:78:90:ab`. This MAC is in big-endian/display format,
+as it would appear e.g. on the sticker on the back of the device.
+
+Using password strategy (1), i.e. the GATT serial number is the *little-endian/wire format* of the
+MAC, and the password is *last* four bytes of little-endian MAC:
+
+- GATT serial number: "AB9078563412"
+- Little-endian Bluetooth MAC: `ab9078563412`
+- Password: `78563412` (last four bytes of little-endian MAC)
+
+Alternatively, using password strategy (2), i.e. the GATT serial number is the *big-endian/display
+format* of the MAC, and the password is *first* four bytes of little-endian MAC:
+
+- GATT serial number: "1234567890AB"
+- Little-endian Bluetooth MAC: `ab9078563412`
+- Password: `ab907856` (first four bytes of little-endian MAC)
 
 ### Blood pressure data:
 

@@ -7,7 +7,7 @@ These devices require a Welch Allyn Android app which is no longer practically i
 has not been updated to support modern 64 bit Android (as of June 2025). (Update: There appears to
 be a new official Android app as of March 2026).
 
-## Devices
+## Devices and compatibility
 
 Tested with the Welch Allyn 1700 SureBP H-BP100-SBP device.
 
@@ -15,6 +15,9 @@ Likely also works with the Welch Allyn 1500 RPM-BP100 device.
 
 These devices appear to use a BLE chipset and protocol from Transtek. The bulk of the code handling
 this protocol is in the `bp100` package in this project.
+
+Tested on MacOS 15 with Python 3.14. Currently not working on (but should support) Linux. Currently
+does not support Home Assistant remote Bluetooth proxies.
 
 ## Installation
 

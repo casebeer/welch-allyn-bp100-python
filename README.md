@@ -211,7 +211,7 @@ holding the on/off button for two seconds while the device is off.
 The device will beging sending BLE advertisements immediately without taking a blood pressure
 reading.
 
-BLE sequence:
+BLE pairing sequence:
 
 - Press and hold device on/off button while the device is off to enter pairing mode.
 - [device] Sends BLE advertisements immediately
@@ -224,7 +224,7 @@ BLE sequence:
 - [device] Send challenge-response challenge (0xa1).
 - [client] Send challenge-response response (0x20).
 - [client] Set time offset in seconds since 2010-01-01 00:00:00 local time.
-- [client] Send waiting for data command (0x22)
+- **[client] Send waiting for data command (0x22)**
 - [device disconnects]
 
 When in pairing mode, the device's BLE advertisement name will be `1BP100`.

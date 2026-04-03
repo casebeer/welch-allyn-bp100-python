@@ -202,7 +202,8 @@ Multi-byte data fields (in both commands and blood pressure data) are little end
 If the device doesn't accept the authentication response, the device will disconnect.
 
 If the client's BLE stack fails to receive and acknowledge a BP data indication, the device will
-disconnect (without sending further BP data nor retrying the failed indication).
+disconnect (without sending further BP data nor retrying the failed indication). Timing of these
+responses is crticial. Delays even due to inline `print()` calls can cause BP data read failures.
 
 Any blood pressure data which *is* received and acknowledged by the a subscribed client's BLE stack
 will be deleted from the device's memory and not sent again. *Reading blood pressure data is a

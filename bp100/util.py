@@ -8,9 +8,6 @@ import struct
 import functools
 import random
 
-from dataclasses import dataclass
-
-
 def transtekChallengeResponse(challenge: bytearray, password: bytearray) -> bytearray:
     return bytearray([p ^ c for p, c in zip(password, challenge)])
 
@@ -60,31 +57,3 @@ def dstRemovalCorrection():
     isDst = time.localtime().tm_isdst
     dstRemovalCorrection = datetime.timedelta(seconds=3600 if isDst else 0)
     return dstRemovalCorrection
-
-
-@dataclass
-class BpData:
-    systolic: int
-    diastolic: int
-    timestamp: datetime.datetime
-    heartrate: int
-    motionDetected: bool
-    irregularHeartbeat: bool
-
-
-def parseBpData(data: bytearray):
-    [ header, systolic, diastolic, map_, timestamp, heartrate, _, bpFlags, _, deviceFlags ] =\
-        struct.unpack('<BHHHIHBBBB', data)
-    bpData = BpData(
-        systolic=systolic,
-        diastolic=diastolic,
-        timestamp=convertTimestampToDatetime(timestamp),
-        heartrate=heartrate,
-        motionDetected=((bpFlags & 0x01) == 1),
-        irregularHeartbeat=(((bpFlags >> 2) & 0x01) == 1),
-    )
-    deviceBatteryOk = ((deviceFlags & 0x01) == 1)
-    return {
-        'bpData': bpData,
-        'deviceBatteryOk': deviceBatteryOk,
-    }

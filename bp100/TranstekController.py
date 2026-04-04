@@ -12,6 +12,7 @@ import asyncio
 import enum
 
 from . import util
+from .model import BpData
 
 logger = logging.getLogger(__name__)
 BLE_RESPONSE_DELAY = 0.01 # slow down messages sent to GATT server
@@ -250,13 +251,13 @@ class TranstekController(object):
 
     # TODO: Add state machine update so we can error if we get no BP data
     async def bpDataHandler(self, dataBytes: bytearray):
-        data = util.parseBpData(dataBytes)
+        bpData = BpData.fromBpData(dataBytes)
 
-        logger.info(f"Got BP data from {data['bpData'].timestamp}")
+        logger.info(f"Got BP data from {bpData.timestamp}")
 
-        self.bpDataQueue.put_nowait(data) # n.b. exception if Queue full
+        self.bpDataQueue.put_nowait(bpData)  # n.b. exception if Queue full
 
-        logger.debug(pprint.pformat(data))
+        logger.debug(pprint.pformat(bpData))
         await self.setWaitingForData()
 
     def close(self):

@@ -169,7 +169,7 @@ class TranstekController(object):
 
     @property
     def serialNumber(self):
-        return self.deviceInfo[DeviceInfoCharacteristics.SERIAL_NUMBER.name]
+        return self.deviceInfo[DeviceInfoCharacteristics.SERIAL_NUMBER.name].decode('ascii')
 
     def setPasswordFromSn(self):
         self.password = self.passwordStrategy.passwordFromSn(self.serialNumber)

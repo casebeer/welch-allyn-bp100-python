@@ -25,7 +25,7 @@ async def bleakEsphomeProxies(
         await habluetooth.BluetoothManager().async_setup()
 
         await asyncio.wait(
-            (asyncio.create_task(conn.start()) for conn in connections),
+            [asyncio.create_task(conn.start()) for conn in connections],
             timeout=timeout,
         )
 

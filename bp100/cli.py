@@ -5,6 +5,7 @@ import asyncio
 import pprint
 import argparse
 import sys
+import os
 
 from .TranstekController import TranstekController
 from .TranstekBleDriver import TranstekBleDriver
@@ -28,7 +29,27 @@ async def client(args):
             logging.basicConfig(level=logging.DEBUG)
             bleak_logger.setLevel(logging.DEBUG)
 
-    await bluetoothConnect(targetAddress=args.device, password=args.password)
+    # combine --proxy args with ESPHOME_BT_PROXIES env variable
+    proxies = os.environ.get('ESPHOME_BT_PROXIES', '').split()
+    proxies += args.proxy
+
+    if proxies:
+        try:
+            from . import remote
+        except ModuleNotFoundError as e:
+            logger.error(f"Unable to import {e.name}. \n"
+                         "To use bleak-esphome remote Bluetooth proxies, install the client with "
+                         "`remote` optional dependencies:\n"
+                         "    pip install welch-allyn-bp100-client[remote]")
+            sys.exit(1)
+
+        logger.info(
+            "Using bleak-esphome remote Bluetooth proxies instead of system Bluetooth stack...")
+        async with remote.bleakEsphomeProxies(
+                [remote.proxyStringToConfig(proxy) for proxy in proxies]):
+            await bluetoothConnect(targetAddress=args.device, password=args.password)
+    else:
+        await bluetoothConnect(targetAddress=args.device, password=args.password)
 
 
 async def bluetoothConnect(targetAddress=None, password=None):
@@ -65,17 +86,21 @@ async def scanner():
     # Normalized service UUIDs since Bleak will not match on a short/16 bit UUID
     serviceUuids = [bleak.uuids.normalize_uuid_str(u) for u in [GattServices.TRANSTEK_BP.value]]
 
-    async with bleak.BleakScanner(
+    queue = asyncio.Queue()
+    scanner = bleak.BleakScanner(
+            detection_callback=lambda device, ad: queue.put_nowait((device, ad)),
             service_uuids=serviceUuids,
-            ) as scanner:
-        logger.info(f"Scanning for service UUIDs {serviceUuids}...")
+            )
+    await scanner.start()
 
-        async for bleDevice, ad in scanner.advertisement_data():
-            advName = ad.local_name
-            logger.info(f"Got matching UUID: {ad.service_uuids} {advName}")
-            break
-        logger.debug("Broken out of scanning loop...")
-    return bleDevice, ad
+    try:
+        logger.info(f"Scanning for service UUIDs {serviceUuids}...")
+        device, ad = await queue.get()  # get a single item from queue
+        logger.info(f"Got matching UUID: {ad.service_uuids} {ad.local_name}")
+    finally:
+        await scanner.stop()
+
+    return device, ad
 
 
 def argparseHexPasswordType(hexPassword):
@@ -107,6 +132,21 @@ async def main():
              "enter paring mode, then running the `wa` script. The script will print the device "
              "password to the console. Note this password and provide it with subsequent runs if "
              "the script says that it differs from the default MAC-based password."
+    )
+
+    parser.add_argument(
+        "--proxy",
+        default=[],
+        nargs='*',
+        help="Configure a remote ESPHome Bluetooth Proxy to use instead of native Bluetooth stack. "
+             "Proxies should be specified as a colon-delimited string:\n"
+             "    --proxy <proxy address>:<noise PSK>\n"
+             "Multiple --proxy arguments may be specified. Alternatively, multiple space-delimited "
+             "configs of the same <address>:<psk> format may be specified in an environment "
+             "variable:\n"
+             "    ESPHOME_BT_PROXIES=\"<address>:<psk> <address:psk> ...\" wa ...\n"
+             "Using the environment variable is more secure, since it avoids exposing your "
+             "proxies' PSKs in the system process list."
     )
 
     parser.add_argument(

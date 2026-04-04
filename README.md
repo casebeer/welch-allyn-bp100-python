@@ -16,8 +16,9 @@ Likely also works with the Welch Allyn 1500 RPM-BP100 device.
 These devices appear to use a BLE chipset and protocol from Transtek. The bulk of the code handling
 this protocol is in the `bp100` package in this project.
 
-Tested on MacOS 15 with Python 3.14. Currently not working on (but should support) Linux. Currently
-does not support Home Assistant remote Bluetooth proxies.
+- Tested on MacOS 15 with Python 3.14.
+- Tested on Linux with Home Assistant remote ESPHome Bluetooth proxies.
+- Currently not working on (but should support) Linux with native bluez BT stack.
 
 ## Installation
 
@@ -69,6 +70,43 @@ serial number/MAC, pass the `--password`/`-p` argument with 8 hex characters:
 
     wa --password aabbccdd
 
+### ESPHome remote Bluetooth proxies
+
+This library supports using ESPHome remote Bluetooth proxies via the `bleak-esphome` package.
+
+Remote proxies enable using Bluetooth over the network from machines with no actual Bluetooth
+hardware directly connected (or machines positioned in a poor RF location). See
+[`bleak-esphome`](https://github.com/Bluetooth-Devices/bleak-esphome) for example proxy client code
+and the [ESPHome Bluetooth Proxies documentation](https://esphome.io/components/bluetooth_proxy/),
+[ESPHome Bluetooth Proxy sample YAML configs](https://github.com/esphome/bluetooth-proxies), or
+[ESPHome Ready-Made Projects web-based device flasher](https://esphome.io/projects/) for information
+on flashing an ESP32 microcontroller with ESPHome firmware configured as a Bluetooth proxy.
+
+Install dependencies supporting remote proxies with the `remote` optional dependencies target:
+
+    pip install -e .[remote]
+
+To use this feature from the CLI, you can either pass the `--proxy` CLI argument or use the
+`ESPHOME_BT_PROXIES` environment variable:
+
+    wa -v --proxy <proxy address>:<psk> --proxy <proxy address 2>:<psk 2>
+
+Or with the environment variable:
+
+    ESPHOME_BT_PROXIES="<address1>:<psk1> <address2>:<psk2>" wa -v
+
+Using the environment variable is more secure, since the CLI argument will expose your Noise PSKs in
+the system process list.
+
+Note that you *cannot* simultaneously connect to an ESPHome proxy device already in use by Home
+Assistant. ESPHome devices support only a single Bluetooth proxy connection at a time, with the
+first device to connect locking out subsequent connection attempts.
+
+Unfortunately, the ESPHome API does not send any errors or feedback when a proxy initialization
+fails. To determine if failure to see any BLE traffic is due to connection contention, view your
+ESPHome device's logs while you attempt to connect. Failures will appear in the ESP32 logs as
+`[bluetooth_proxy:...]: Only one API subscription is allowed at a time`.
+
 ## API
 
 For API usage, see the `bp100/cli.py` script that provides the `wa` CLI entrypoint. Basics:
@@ -112,6 +150,10 @@ For API usage, see the `bp100/cli.py` script that provides the `wa` CLI entrypoi
             pprint.pprint(data)
 
     asyncio.run(run())
+
+See `cli.py` and `remote.py` for usage via `bleak-esphome` remote proxies. Remote proxies require
+(a) NOT using `from ... import` for BleakClient* and BleakScanner instances, and (b) NOT using the
+`async with` Bleak APIs.
 
 ## Testing
 
@@ -339,5 +381,3 @@ The format is:
   minimise risk of missed BLE data.
 - Move BLE client into a separate thread to decouple from end-user blocking calls (like printing
   while reading from the `TranstekController.bpData()` async generator.
-- Move away from async context manager Bleak APIs for better compatibility e.g. with Home Assistant
-  remote bluetooth proxies.

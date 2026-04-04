@@ -16,6 +16,9 @@ test = [
   "pytest",
   "pytest-asyncio",
 ]
+remote = [
+  "bleak-esphome",
+]
 
 [project.scripts]
 wa = "bp100.cli:run"

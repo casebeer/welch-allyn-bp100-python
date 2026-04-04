@@ -53,13 +53,10 @@ async def client(args):
 
 
 async def bluetoothConnect(targetAddress=None, password=None):
-    if targetAddress is None:
-        device, ad = await scanner()
-        advName = ad.local_name
-    else:
-        logger.info(f"Connecting to specified BLE device with address {targetAddress}")
-        device = targetAddress
-        advName = None
+    # scan even if we have targetAddress since not all backends support connecting via a raw address
+    # e.g. bleak-esphome, maybe e.g. Linux Bluez
+    device, ad = await scanner(targetAddress)
+    advName = ad.local_name if ad else None
 
     logger.info(f"Connecting to BP monitor {device} (advertised name {advName})...")
 
@@ -82,7 +79,7 @@ async def bluetoothConnect(targetAddress=None, password=None):
         pprint.pprint(bpData)
 
 
-async def scanner():
+async def scanner(targetAddress=None):
     # Normalized service UUIDs since Bleak will not match on a short/16 bit UUID
     serviceUuids = [bleak.uuids.normalize_uuid_str(u) for u in [GattServices.TRANSTEK_BP.value]]
 
@@ -95,8 +92,21 @@ async def scanner():
 
     try:
         logger.info(f"Scanning for service UUIDs {serviceUuids}...")
-        device, ad = await queue.get()  # get a single item from queue
-        logger.info(f"Got matching UUID: {ad.service_uuids} {ad.local_name}")
+        # TODO: implement timeout
+        while True:
+            device, ad = await queue.get()  # get a single item from queue
+            if targetAddress is not None:
+                # n.b. bleak-esphome backend does not support BleakScanner.find_by_device_address(),
+                #      so implement address matching manually.
+                if device.address.upper() != targetAddress.upper().strip():
+                    logger.info(f"Found service on {device.address.upper()} but doesn't "
+                                f"match target address {targetAddress.upper().strip()}")
+                    continue
+                else:
+                    logger.info(f"Found device matching service and target address {targetAddress}")
+            break
+        logger.info(
+            f"Got device with services {ad.service_uuids}: {ad.local_name} {device.address}")
     finally:
         await scanner.stop()
 

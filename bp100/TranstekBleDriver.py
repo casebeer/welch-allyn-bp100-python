@@ -1,20 +1,14 @@
 import logging
 
-from bleak import (
-    BleakClient,
-)
-
 import asyncio
 import pprint
 
 from bleak import (
     BleakGATTCharacteristic,
 )
-from bleak_retry_connector import (
-    BleakClientWithServiceCache,
-    establish_connection,
-    retry_bluetooth_connection_error,
-)
+
+# to allow habluetooth to monkeypatch BleakClient*, do NOT from ... import
+import bleak_retry_connector
 
 from .bleUuids import (
     GattServices,
@@ -42,10 +36,10 @@ class TranstekBleDriver(object):
         logger.info(f"Disconnected from device {client.address} ({self.deviceName})")
         asyncio.create_task(self.disconnect())
 
-    #@retry_bluetooth_connection_error
+    #@bleak_retry_connector.retry_bluetooth_connection_error
     async def connect(self):
-        self.client = await establish_connection(
-            BleakClientWithServiceCache,
+        self.client = await bleak_retry_connector.establish_connection(
+            bleak_retry_connector.BleakClientWithServiceCache,
             self.deviceOrAddress,
             self.deviceName,
             disconnected_callback=self.clientDisconnectHandler,

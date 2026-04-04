@@ -13,6 +13,7 @@ from .bleUuids import GattServices
 bleak_logger = logging.getLogger("bleak")
 logger = logging.getLogger(__name__)
 
+
 async def client(args):
     bleak_logger.setLevel(logging.INFO)
     args.verbose = min(args.verbose, 3)
@@ -27,32 +28,23 @@ async def client(args):
             logging.basicConfig(level=logging.DEBUG)
             bleak_logger.setLevel(logging.DEBUG)
 
-    if args.device is None:
-        # Normalized service UUIDs since Bleak will not match on a short/16 bit UUID
-        serviceUuids = [bleak.uuids.normalize_uuid_str(u) for u in [GattServices.TRANSTEK_BP.value]]
-        async with bleak.BleakScanner(
-            service_uuids=serviceUuids,
-            ) as scanner:
-            logger.info(f"Scanning for service UUIDs {serviceUuids}...")
+    await bluetoothConnect(targetAddress=args.device, password=args.password)
 
-            async for bleDevice, ad in scanner.advertisement_data():
-                advName = ad.local_name
-                if ad.service_uuids:
-                    logger.info(f"Got matching UUID: {ad.service_uuids} {advName}")
-                    # return the first matching device seen
-                    device = bleDevice
-                    break
-            logger.debug("Broken out of scanning loop...")
+
+async def bluetoothConnect(targetAddress=None, password=None):
+    if targetAddress is None:
+        device, ad = await scanner()
+        advName = ad.local_name
     else:
-        logger.info(f"Connecting to specified BLE device with address {args.device}")
-        device = args.device
+        logger.info(f"Connecting to specified BLE device with address {targetAddress}")
+        device = targetAddress
         advName = None
 
     logger.info(f"Connecting to BP monitor {device} (advertised name {advName})...")
 
     transtekController = TranstekController(
                             TranstekBleDriver(device, advName=advName),
-                            password=args.password
+                            password=password
                             )
 
     # Once the controller is initialized, it will respond asynchronously
@@ -67,6 +59,23 @@ async def client(args):
     pprint.pprint(transtekController.deviceInfo)
     async for bpData in transtekController.bpData():
         pprint.pprint(bpData)
+
+
+async def scanner():
+    # Normalized service UUIDs since Bleak will not match on a short/16 bit UUID
+    serviceUuids = [bleak.uuids.normalize_uuid_str(u) for u in [GattServices.TRANSTEK_BP.value]]
+
+    async with bleak.BleakScanner(
+            service_uuids=serviceUuids,
+            ) as scanner:
+        logger.info(f"Scanning for service UUIDs {serviceUuids}...")
+
+        async for bleDevice, ad in scanner.advertisement_data():
+            advName = ad.local_name
+            logger.info(f"Got matching UUID: {ad.service_uuids} {advName}")
+            break
+        logger.debug("Broken out of scanning loop...")
+    return bleDevice, ad
 
 
 def argparseHexPasswordType(hexPassword):

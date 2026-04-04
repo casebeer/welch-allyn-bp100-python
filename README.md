@@ -9,7 +9,7 @@ be a new official Android app as of March 2026).
 
 ## Devices and compatibility
 
-Tested with the Welch Allyn 1700 SureBP H-BP100-SBP device.
+Tested with the Welch Allyn 1700 SureBP H-BP100-SBP device (both "Ver. A" and "Ver. B").
 
 Likely also works with the Welch Allyn 1500 RPM-BP100 device.
 

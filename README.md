@@ -18,7 +18,7 @@ this protocol is in the `bp100` package in this project.
 
 - Tested on MacOS 15 with Python 3.14.
 - Tested on Linux with Home Assistant remote ESPHome Bluetooth proxies.
-- Currently not working on (but should support) Linux with native bluez BT stack.
+- Tested partially working/slow/unreliable on Linux with Bluez 5.8.3 (may be adapter issue).
 
 ## Installation
 

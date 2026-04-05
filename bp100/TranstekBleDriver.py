@@ -25,6 +25,7 @@ class TranstekBleDriver(object):
                             getattr(deviceOrAddress, 'name',
                             getattr(deviceOrAddress, 'address',
                             f"TranstekBleDevice str(deviceOrAddress)"))
+        self.client = None
         self.reset()
 
     def reset(self):
@@ -67,7 +68,7 @@ class TranstekBleDriver(object):
         logger.debug("Disconnecting and cleaning up TranstekBleDriver...")
         # cleanup
         try:
-            if self.client.is_connected:
+            if self.client and self.client.is_connected:
                 await self.client.disconnect()
         finally:
             self.is_connected = False

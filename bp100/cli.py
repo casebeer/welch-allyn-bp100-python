@@ -40,7 +40,7 @@ async def client(args):
             logger.error(f"Unable to import {e.name}. \n"
                          "To use bleak-esphome remote Bluetooth proxies, install the client with "
                          "`remote` optional dependencies:\n"
-                         "    pip install welch-allyn-bp100-client[remote]")
+                         "    pip install welch-allyn-bp100[remote]")
             sys.exit(1)
 
         logger.info(
